@@ -2,99 +2,145 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>LMCS — Teacher Portal</title>
+<meta name="theme-color" content="#CE0000">
 <link rel="preconnect" href="https://script.google.com"><link rel="preconnect" href="https://accounts.google.com">
 <link rel="preconnect" href="https://kanwaruday.github.io">
 <style>
-:root{--red:#CE0000;--red-h:#a50000;--red-lt:rgba(206,0,0,.07);--dark:#1a1a1a;--gray:#555;--lgray:#f5f5f5;--border:#ddd;--white:#fff;--green:#15803d;--amber:#b45309}
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Segoe UI',Arial,sans-serif;background:var(--white);color:var(--dark);min-height:100vh;font-size:13px;line-height:1.6;display:flex;flex-direction:column}
+:root{--red:#CE0000;--red-h:#a50000;--red-lt:rgba(206,0,0,.08);--dark:#1a1a1a;--gray:#5b6472;--lgray:#f4f5f7;--border:#e6e8ec;--white:#fff;--green:#15803d;--green-lt:#dcfce7;--amber:#b45309;--amber-lt:#fef3c7;--blue:#1d4ed8;--blue-lt:#dbeafe;--purple:#6d28d9;--purple-lt:#ede9fe;--shadow:0 2px 10px rgba(20,20,30,.06);--shadow-lg:0 8px 28px rgba(20,20,30,.10)}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:'Segoe UI',system-ui,Arial,sans-serif;background:var(--lgray);color:var(--dark);min-height:100vh;font-size:13.5px;line-height:1.55}
 
-.hdr{background:var(--red);color:#fff;padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-shrink:0;border-bottom:1px solid var(--red-h)}
-.hdr-brand h1{font-size:14px;font-weight:700;letter-spacing:.3px}
-.hdr-brand p{font-size:9.5px;opacity:.75;margin-top:1px}
-.hdr-right{display:flex;align-items:center;gap:6px;flex-shrink:0}
-.hdr-btn{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:rgba(255,255,255,.92);padding:5px 12px;border-radius:4px;font-size:11px;font-weight:600;text-decoration:none;cursor:pointer;transition:background .15s;white-space:nowrap}
-.hdr-btn:hover{background:rgba(255,255,255,.22)}
+/* ── App-shell header: compact, game-HUD flavored ── */
+.hdr{position:sticky;top:0;z-index:40;background:linear-gradient(135deg,var(--red),#e01313);color:#fff;padding:14px 16px calc(14px + env(safe-area-inset-top,0px));padding-top:calc(14px + env(safe-area-inset-top,0px));box-shadow:0 2px 14px rgba(206,0,0,.25)}
+.hdr-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.hdr-hi{font-size:15px;font-weight:800}
+.hdr-sub{font-size:11px;opacity:.85;margin-top:2px}
+.hdr-signout{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:8px;padding:7px 11px;font-size:11px;font-weight:700;cursor:pointer}
+.hdr-signout:hover{background:rgba(255,255,255,.28)}
+.streak-pill{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.18);border-radius:999px;padding:5px 12px;font-size:11.5px;font-weight:700;margin-top:10px}
 
-#appBody{flex:1;overflow:auto;padding:18px 24px;max-width:900px;margin:0 auto;width:100%}
-@media(max-width:480px){#appBody{padding:14px 12px}.hdr{padding:0 14px}}
-
+#appBody{max-width:520px;margin:0 auto;width:100%;padding:14px 14px calc(84px + env(safe-area-inset-bottom,0px))}
 .denied{text-align:center;padding:60px 20px;color:var(--gray)}
-.denied .icon{font-size:36px;margin-bottom:10px}
+.denied .icon{font-size:38px;margin-bottom:10px}
 .denied h3{font-size:15px;color:var(--dark);margin-bottom:6px}
-.notice{background:#fff3cd;border:1px solid #ffc107;color:#92400e;padding:12px 16px;font-size:12px;border-radius:6px;margin-bottom:16px;line-height:1.6}
+.notice{background:#fff3cd;border:1px solid #ffc107;color:#92400e;padding:12px 16px;font-size:12px;border-radius:10px;margin-bottom:14px;line-height:1.6}
 
-.card{background:var(--white);border:1px solid var(--border);border-radius:10px;padding:12px 14px 13px;margin-bottom:16px}
-.card-title{font-size:12px;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:.04em;margin:0 0 3px;display:flex;align-items:center;justify-content:space-between}
-.card-hint{font-size:11px;color:#8A96A6;margin:0 0 7px}
+/* ── Cards, HUD stat tiles ── */
+.card{background:var(--white);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:14px;box-shadow:var(--shadow)}
+.card-title{font-size:11.5px;font-weight:800;color:var(--red);text-transform:uppercase;letter-spacing:.05em;margin:0 0 10px;display:flex;align-items:center;justify-content:space-between}
+.card-hint{font-size:11.5px;color:#8A96A6;margin:-4px 0 12px}
+.section-lead{font-size:19px;font-weight:800;margin-bottom:2px}
+.section-sub{font-size:12px;color:var(--gray);margin-bottom:14px}
 
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.stat-tile{background:var(--white);border:1px solid var(--border);border-radius:14px;padding:14px;text-align:center;box-shadow:var(--shadow)}
+.stat-tile .num{font-size:26px;font-weight:800;line-height:1;color:var(--red)}
+.stat-tile .lbl{font-size:10.5px;color:var(--gray);font-weight:700;text-transform:uppercase;letter-spacing:.03em;margin-top:5px}
+.stat-tile.green .num{color:var(--green)}
+.stat-tile.amber .num{color:var(--amber)}
+.stat-tile.blue .num{color:var(--blue)}
+
+.quick-link{display:flex;align-items:center;gap:12px;background:var(--white);border:1px solid var(--border);border-radius:14px;padding:13px 14px;margin-bottom:10px;box-shadow:var(--shadow);cursor:pointer;transition:transform .1s}
+.quick-link:active{transform:scale(.98)}
+.quick-link .ico{font-size:22px;width:38px;height:38px;display:flex;align-items:center;justify-content:center;background:var(--red-lt);border-radius:10px;flex-shrink:0}
+.quick-link .txt{flex:1;min-width:0}
+.quick-link .txt b{font-size:13px;display:block}
+.quick-link .txt span{font-size:11px;color:var(--gray)}
+.quick-link .chev{color:#C6CDD6;font-size:16px}
+
+/* ── Bottom app nav ── */
+.bottom-nav{position:fixed;left:0;right:0;bottom:0;z-index:50;background:var(--white);border-top:1px solid var(--border);display:flex;padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px));box-shadow:0 -4px 16px rgba(20,20,30,.06)}
+.nav-btn{flex:1;background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 2px;border-radius:12px;cursor:pointer;color:var(--gray)}
+.nav-btn .ico{font-size:19px}
+.nav-btn .lbl{font-size:9.5px;font-weight:700}
+.nav-btn.active{color:var(--red)}
+.nav-btn.active .ico{transform:translateY(-1px)}
+
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+
+/* ── Forms / inputs ── */
 .row-2col{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-@media(max-width:520px){.row-2col{grid-template-columns:1fr}}
-.field-label{display:block;font-size:11px;font-weight:600;color:var(--gray);margin-bottom:5px}
-select,input[type=text],textarea{border:1.5px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12.5px;font-family:inherit;color:var(--dark);background:var(--white);width:100%}
+.field-label{display:block;font-size:11px;font-weight:700;color:var(--gray);margin-bottom:5px}
+select,input[type=text],textarea{border:1.5px solid var(--border);border-radius:10px;padding:10px 11px;font-size:13px;font-family:inherit;color:var(--dark);background:var(--white);width:100%}
 select:focus,input:focus,textarea:focus{outline:none;border-color:var(--red)}
+.submit-bar{display:flex;justify-content:flex-end;margin-top:4px}
+.submit-btn{border:none;background:linear-gradient(135deg,var(--red),var(--red-h));color:#fff;font-size:13.5px;font-weight:800;padding:12px 24px;border-radius:12px;cursor:pointer;box-shadow:0 4px 14px rgba(206,0,0,.28)}
+.submit-btn:disabled{opacity:.6;cursor:default;box-shadow:none}
 
-.submit-bar{display:flex;justify-content:flex-end;margin-top:10px}
-.submit-btn{border:none;background:var(--red);color:#fff;font-size:13px;font-weight:700;padding:11px 26px;border-radius:8px;cursor:pointer}
-.submit-btn:hover{background:var(--red-h)}
-.submit-btn:disabled{opacity:.6;cursor:default}
-
-.dash-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.dash-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px}
 .role-picker{display:flex;gap:6px;flex-wrap:wrap}
-.role-btn{background:var(--white);border:1.5px solid var(--border);border-radius:20px;padding:6px 14px;font-size:11.5px;font-weight:600;color:var(--gray);cursor:pointer}
+.role-btn{background:var(--white);border:1.5px solid var(--border);border-radius:20px;padding:6px 13px;font-size:11px;font-weight:700;color:var(--gray);cursor:pointer}
 .role-btn.active{background:var(--red-lt);border-color:var(--red);color:var(--red)}
-.date-refresh-btn{border:1.5px solid var(--border);background:#fff;border-radius:6px;padding:6px;display:flex;align-items:center;cursor:pointer;color:var(--gray)}
-.date-refresh-btn:hover{color:var(--red);border-color:var(--red)}
+.icon-btn{border:1.5px solid var(--border);background:#fff;border-radius:10px;padding:7px 9px;display:flex;align-items:center;cursor:pointer;color:var(--gray)}
+.icon-btn:hover{color:var(--red);border-color:var(--red)}
 
-.tbl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:6px}
-table{width:100%;border-collapse:collapse;font-size:12px}
-thead th{background:var(--red);color:#fff;padding:7px 12px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;white-space:nowrap}
-tbody tr{border-bottom:1px solid var(--border)}
-tbody tr:last-child{border-bottom:none}
-tbody tr:nth-child(even) td{background:#fafafa}
-tbody tr:hover td{background:var(--red-lt)}
-td{padding:6px 12px;vertical-align:middle}
-.pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700}
-.pill.none{background:#fee2e2;color:var(--red)}
-.pill.ok{background:#dcfce7;color:var(--green)}
-.pill.amber{background:#fef3c7;color:var(--amber)}
-.pill.revoked{background:#e5e7eb;color:#4b5563}
-.pill.urgent{background:#fee2e2;color:var(--red)}
-.dash-empty{padding:16px 12px;text-align:center;color:var(--gray)}
-.detail-empty{font-size:11.5px;color:var(--gray);padding:6px 0}
-.loading-state{text-align:center;padding:40px 20px;color:var(--gray)}
-.loading-state .spinner{width:28px;height:28px;border:3px solid var(--border);border-top-color:var(--red);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 10px}
-@keyframes spin{to{transform:rotate(360deg)}}
-
-.apr-row{cursor:pointer}
-.apr-row:hover td{background:var(--red-lt)!important}
-.apr-row.expanded td{background:var(--lgray)!important}
-.apr-detail-wrap{padding:12px 14px;background:var(--lgray)}
+/* ── Request list ── */
+.req-card{background:var(--white);border:1px solid var(--border);border-radius:14px;padding:13px 14px;margin-bottom:9px;box-shadow:var(--shadow);cursor:pointer}
+.req-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.req-title{font-size:13px;font-weight:700}
+.req-meta{font-size:11px;color:var(--gray);margin-top:3px}
+.req-detail{margin-top:12px;padding-top:12px;border-top:1px dashed var(--border)}
 .apr-desc{font-size:12.5px;color:var(--dark);line-height:1.6;margin-bottom:8px;white-space:pre-wrap}
 .apr-meta-row{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:11px;color:var(--gray);margin-bottom:10px}
 .apr-comments{margin:10px 0}
-.apr-comment{background:#fff;border:1px solid var(--border);border-radius:6px;padding:7px 10px;margin-bottom:6px;font-size:12px}
+.apr-comment{background:var(--lgray);border-radius:10px;padding:8px 11px;margin-bottom:6px;font-size:12px}
 .apr-comment .apr-comment-meta{font-size:10.5px;color:var(--gray);margin-bottom:3px}
-.apr-comment-del{color:#B7C0CC;text-decoration:none;font-weight:600}
+.apr-comment-del{color:#B7C0CC;text-decoration:none;font-weight:700}
 .apr-comment-del:hover{color:var(--red)}
-.apr-reply-hint{font-size:11.5px;color:var(--amber);font-weight:600;margin:8px 0 4px}
+.apr-reply-hint{font-size:11.5px;color:var(--amber);font-weight:700;margin:8px 0 4px}
 .apr-reply-row input{border-color:var(--amber)}
 .apr-reply-row button{background:var(--amber)}
 .add-row{display:flex;gap:8px}
 .add-row input{flex:1}
-.add-row button{border:none;background:var(--red);color:#fff;border-radius:6px;padding:0 16px;height:34px;font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0}
+.add-row button{border:none;background:var(--red);color:#fff;border-radius:10px;padding:0 16px;height:38px;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0}
 .add-row button:hover{background:var(--red-h)}
+
+.pill{display:inline-block;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:800;flex-shrink:0}
+.pill.none{background:#fee2e2;color:var(--red)}
+.pill.ok{background:var(--green-lt);color:var(--green)}
+.pill.amber{background:var(--amber-lt);color:var(--amber)}
+.pill.revoked{background:#e5e7eb;color:#4b5563}
+.pill.urgent{background:#fee2e2;color:var(--red)}
+.dash-empty{padding:26px 12px;text-align:center;color:var(--gray)}
+.detail-empty{font-size:11.5px;color:var(--gray);padding:6px 0}
+.loading-state{text-align:center;padding:40px 20px;color:var(--gray)}
+.loading-state .spinner{width:26px;height:26px;border:3px solid var(--border);border-top-color:var(--red);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 10px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Rubric bars (My Evaluations) ── */
+.rubric-row{margin-bottom:10px}
+.rubric-row .rr-top{display:flex;justify-content:space-between;font-size:11.5px;margin-bottom:4px}
+.rubric-row .rr-name{color:var(--dark);font-weight:600}
+.rubric-row .rr-val{color:var(--gray);font-weight:700}
+.rubric-bar{height:8px;border-radius:999px;background:var(--lgray);overflow:hidden}
+.rubric-bar>div{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--red),#ff6b6b)}
+
+/* ── Tag chips (matches curriculum-progress/daily-progress.html's palette) ── */
+.tag-chip{font-size:10px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap;display:inline-block}
+.tag-cwa{background:var(--green-lt);color:var(--green)}
+.tag-ott{background:var(--blue-lt);color:var(--blue)}
+.tag-teaching{background:var(--purple-lt);color:var(--purple)}
+.tag-revise{background:var(--amber-lt);color:var(--amber)}
+.tag-remedial{background:#fee2e2;color:var(--red)}
+.tag-default{background:var(--lgray);color:var(--gray)}
+.tagfreq-row{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+.tagfreq-row .tf-name{width:96px;flex-shrink:0;font-size:11.5px;font-weight:700}
+.tagfreq-bar{flex:1;height:10px;border-radius:999px;background:var(--lgray);overflow:hidden}
+.tagfreq-bar>div{height:100%;border-radius:999px}
+.tagfreq-row .tf-count{width:26px;text-align:right;font-size:11.5px;font-weight:800;color:var(--dark);flex-shrink:0}
+.day-strip{display:flex;gap:4px;margin-top:6px}
+.day-dot{flex:1;height:26px;border-radius:7px;background:var(--lgray)}
+.day-dot.hit{background:linear-gradient(135deg,var(--green),#22c55e)}
 </style>
 </head>
 <body>
 
-<!-- LMCS Portal auth gate — auth.js is loaded live from LMCSManagement
-     (this repo is deliberately separate, per Uday 2026-09-19: distinct
-     ownership/branding/app-store path from the admin-facing portal),
-     so there is exactly one copy of the session/allowlist logic instead
-     of a second one drifting out of sync across two repos. -->
+<!-- LMCS Portal auth gate — auth.js loaded live from LMCSManagement
+     (single shared session/allowlist implementation, see this repo's
+     README for the split-repo rationale). -->
 <style>
   #lmcs-gate{position:fixed;inset:0;z-index:99999;background:#fff;display:flex;align-items:center;justify-content:center}
   #lmcs-gate .auth-gate{max-width:380px;margin:0 auto;padding:32px 28px;border:1px solid #ddd;border-top:3px solid #CE0000;border-radius:6px;text-align:center;font-family:'Segoe UI',Arial,sans-serif}
@@ -113,96 +159,142 @@ td{padding:6px 12px;vertical-align:middle}
 
 <!-- HEADER -->
 <div class="hdr">
-  <div class="hdr-brand">
-    <h1>LMCS — Teacher Portal</h1>
-    <p id="hdrCtx">My Requests (leave & other approvals)</p>
+  <div class="hdr-row">
+    <div>
+      <div class="hdr-hi" id="hdrGreeting">LMCS — Teacher Portal</div>
+      <div class="hdr-sub" id="hdrSub">Your requests, evaluations & CW/HW patterns</div>
+    </div>
+    <button type="button" class="hdr-signout" onclick="LMCS.signOut()">Sign out</button>
   </div>
-  <div class="hdr-right">
-    <a href="https://kanwaruday.github.io/LMCSManagement/index.html" class="hdr-btn">← Portal</a>
-  </div>
+  <div id="streakPillWrap"></div>
 </div>
 
 <div id="appBody">
   <div id="deniedBox" style="display:none"></div>
   <div id="appArea" style="display:none">
 
-    <!-- ══════════════════ MY REQUESTS (Phase 1a) ══════════════════
-         Only section that exists today. Timetable, Period Adjustments,
-         Forms Hub, tag-based coaching, and SS/incentive visibility are
-         later phases (see the LMCS Management vault note) -- adding
-         them means adding tabs here, not new pages, matching how every
-         other module in this portal family is one page with tabs. -->
-    <div class="card" id="aprNewRequestCard">
-      <p class="card-title">New Request</p>
-      <p class="card-hint">Leave and other requests go to your Principal/Owner for a decision — same as the Approvals workflow they already use.</p>
-      <div class="row-2col">
-        <div>
-          <label class="field-label">Category</label>
-          <select id="aprCategory"></select>
-        </div>
-        <div>
-          <label class="field-label">Urgency</label>
-          <select id="aprUrgency"><option value="Normal">Normal</option><option value="Urgent">Urgent</option></select>
-        </div>
+    <!-- ══════════════════ HOME ══════════════════ -->
+    <div class="tab-panel active" id="panel-home">
+      <div class="stat-grid" id="homeStatGrid">
+        <div class="stat-tile"><div class="num">—</div><div class="lbl">SS Avg Score</div></div>
+        <div class="stat-tile green"><div class="num">—</div><div class="lbl">CW/HW Logs (7d)</div></div>
       </div>
-      <div style="margin-top:10px">
-        <label class="field-label">Title</label>
-        <input type="text" id="aprTitle" placeholder="Short summary, e.g. &quot;2 days CL — family event&quot;">
+      <div class="quick-link" onclick="goTab('requests')">
+        <div class="ico">📝</div>
+        <div class="txt"><b>My Requests</b><span id="homeReqSub">Leave & other approvals</span></div>
+        <div class="chev">›</div>
       </div>
-      <div style="margin-top:10px">
-        <label class="field-label">Description</label>
-        <textarea id="aprDescription" rows="4" placeholder="Explain why, with dates and any relevant details"></textarea>
+      <div class="quick-link" onclick="goTab('evals')">
+        <div class="ico">⭐</div>
+        <div class="txt"><b>My Evaluations</b><span id="homeEvalSub">Your Support Session scores</span></div>
+        <div class="chev">›</div>
       </div>
-      <div style="margin-top:10px">
-        <label class="field-label">Evidence link (optional)</label>
-        <input type="text" id="aprEvidenceLink" placeholder="Paste a Drive/Photos link if relevant">
+      <div class="quick-link" onclick="goTab('tags')">
+        <div class="ico">📚</div>
+        <div class="txt"><b>My CW/HW Patterns</b><span id="homeTagSub">What you've been teaching</span></div>
+        <div class="chev">›</div>
       </div>
-      <div class="submit-bar">
-        <button type="button" class="submit-btn" id="aprSubmitBtn" onclick="submitApprovalRequest()">Submit Request</button>
-      </div>
+      <div class="notice" style="margin-top:4px">More on the way: timetable, period adjustments, a forms hub, and target-based coaching on your CW/HW patterns (that last one needs Uday to define expected ranges per tag first — patterns below are real data, not yet compared against a target).</div>
     </div>
 
-    <div class="dash-toolbar">
-      <p class="card-title" style="margin:0">My Requests</p>
-      <div style="display:flex;align-items:center;gap:8px">
-        <div id="aprStatusFilter" class="role-picker"></div>
-        <button type="button" class="date-refresh-btn" title="Refresh" onclick="refreshApprovals()">↻</button>
+    <!-- ══════════════════ MY REQUESTS ══════════════════ -->
+    <div class="tab-panel" id="panel-requests">
+      <div class="section-lead">My Requests</div>
+      <div class="section-sub">Leave and other requests go to your Principal/Owner — same workflow they already use.</div>
+
+      <div class="card" id="aprNewRequestCard">
+        <p class="card-title">New Request</p>
+        <div class="row-2col">
+          <div>
+            <label class="field-label">Category</label>
+            <select id="aprCategory"></select>
+          </div>
+          <div>
+            <label class="field-label">Urgency</label>
+            <select id="aprUrgency"><option value="Normal">Normal</option><option value="Urgent">Urgent</option></select>
+          </div>
+        </div>
+        <div style="margin-top:10px">
+          <label class="field-label">Title</label>
+          <input type="text" id="aprTitle" placeholder="Short summary, e.g. &quot;2 days CL — family event&quot;">
+        </div>
+        <div style="margin-top:10px">
+          <label class="field-label">Description</label>
+          <textarea id="aprDescription" rows="4" placeholder="Explain why, with dates and any relevant details"></textarea>
+        </div>
+        <div style="margin-top:10px">
+          <label class="field-label">Evidence link (optional)</label>
+          <input type="text" id="aprEvidenceLink" placeholder="Paste a Drive/Photos link if relevant">
+        </div>
+        <div class="submit-bar">
+          <button type="button" class="submit-btn" id="aprSubmitBtn" onclick="submitApprovalRequest()">Submit Request</button>
+        </div>
       </div>
+
+      <div class="dash-toolbar">
+        <p class="card-title" style="margin:0">History</p>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div id="aprStatusFilter" class="role-picker"></div>
+          <button type="button" class="icon-btn" title="Refresh" onclick="refreshApprovals()">↻</button>
+        </div>
+      </div>
+      <div id="aprListBody"><div class="loading-state"><div class="spinner"></div>Loading…</div></div>
     </div>
-    <div id="aprListBody"><div class="loading-state"><div class="spinner"></div>Loading…</div></div>
+
+    <!-- ══════════════════ MY EVALUATIONS (SS) ══════════════════ -->
+    <div class="tab-panel" id="panel-evals">
+      <div class="section-lead">My Evaluations</div>
+      <div class="section-sub">Your own Teacher SS (Support Session) scores — visible only to you and your Principal, not compared to any colleague.</div>
+      <div id="evalsBody"><div class="loading-state"><div class="spinner"></div>Loading…</div></div>
+    </div>
+
+    <!-- ══════════════════ MY CW/HW TAGS ══════════════════ -->
+    <div class="tab-panel" id="panel-tags">
+      <div class="section-lead">My CW/HW Patterns</div>
+      <div class="section-sub">How your last 30 days of classwork/homework logging breaks down by tag — this is your real data, not yet checked against any target (that needs the tag rubric Uday hasn't defined yet).</div>
+      <div id="tagsBody"><div class="loading-state"><div class="spinner"></div>Loading…</div></div>
+    </div>
 
   </div>
 </div>
 
+<div class="bottom-nav" id="bottomNav" style="display:none">
+  <button type="button" class="nav-btn active" data-tab="home" onclick="goTab('home')"><span class="ico">🏠</span><span class="lbl">Home</span></button>
+  <button type="button" class="nav-btn" data-tab="requests" onclick="goTab('requests')"><span class="ico">📝</span><span class="lbl">Requests</span></button>
+  <button type="button" class="nav-btn" data-tab="evals" onclick="goTab('evals')"><span class="ico">⭐</span><span class="lbl">Evaluations</span></button>
+  <button type="button" class="nav-btn" data-tab="tags" onclick="goTab('tags')"><span class="ico">📚</span><span class="lbl">CW·HW</span></button>
+</div>
+
 <script>
 // ── PDR_BACKEND_URL: same "LMCS Principal's Daily Reporting Backend"
-// Apps Script project every other module in this portal family calls
-// (see ../LMCSManagement/apps-script/main.gs) -- Teacher Portal is a
-// separate repo/frontend, not a separate backend. Keep this in sync
-// with PDR_BACKEND_URL in LMCSManagement/principals-daily-reporting/
-// index.html and LMCSManagement/hiring/index.html if it's ever
-// redeployed. ──────────────────────────────────────────────────────
+// Apps Script project every other module in this portal family calls.
+// Keep in sync with LMCSManagement's principals-daily-reporting/index.html
+// and hiring/index.html if it's ever redeployed. ────────────────────
 const PDR_BACKEND_URL = 'https://script.google.com/macros/s/AKfycbzpkFLy4KvTdSJfioz6wlgRGLjvO_GvbffhOYBb-hHybFtjGTk0ps-GzXz0FrQ9GmYdfg/exec';
 
-// Mirrors APR_TEACHER_CATEGORIES in apps-script/approvals.gs -- keep in
-// sync if that list changes. Deliberately narrow for v1 (no Hiring/
-// Compensation/Disciplinary categories, which stay Principal-only).
+// Curriculum-progress's own proxy (apps-script/ChapterTracker.gs's
+// "CWHWTracker" project) -- already a fully public, unauthenticated
+// GET returning every campus's daily CW/HW log (confirmed: this is how
+// curriculum-progress/daily-progress.html itself already calls it, no
+// idToken, no new exposure introduced by reusing it here). We filter
+// to the signed-in teacher's own name client-side, same as every other
+// role viewing this data today.
+const CWHW_PROXY_URL = 'https://script.google.com/macros/s/AKfycbyYk0uDnp-PHdUDdOh5-KfD2xK1ahYCQ_vt7SJigQMhSA3DSs5t5v_q4tnseoZKw3_L/exec';
+
+// Mirrors APR_TEACHER_CATEGORIES in apps-script/approvals.gs.
 const APR_CATEGORIES = ['Compensatory Leave', 'Other'];
 const APR_STATUS_PILLS = ['All', 'Pending', 'Info Requested', 'Approved', 'Rejected', 'Revoked'];
 let APR_STATUS_FILTER = 'All';
-let aprRes = null;              // full action=approvalslist response (already scoped server-side to "my own")
+let aprRes = null;
 let aprExpandedId = null;
-
 let SESSION = null;
+let currentTab = 'home';
 
-function aprEsc_(s) {
+function esc_(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
     return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
   });
 }
-
-// DD/MM/YYYY, explicitly -- matches every other page in this portal
-// family rather than following the browser's own locale.
 function formatDDMMYYYY_(dateStr) {
   if (!dateStr) return '—';
   const d = new Date(dateStr);
@@ -210,181 +302,138 @@ function formatDDMMYYYY_(dateStr) {
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   return dd + '/' + mm + '/' + d.getFullYear();
 }
-
 function pdrReportAuthFailureIfNeeded_(res) {
-  if (res && res.error === 'Not authorized' && window.LMCS && LMCS.notifyAuthFailure) {
-    LMCS.notifyAuthFailure();
-  }
+  if (res && res.error === 'Not authorized' && window.LMCS && LMCS.notifyAuthFailure) LMCS.notifyAuthFailure();
 }
-
 async function pdrPost_(action, body) {
   try {
-    const res = await fetch(PDR_BACKEND_URL, {
-      method: 'POST',
-      body: JSON.stringify(Object.assign({ action: action, idToken: SESSION.idToken }, body))
-    }).then(function (r) { return r.json(); });
-    return res;
+    return await fetch(PDR_BACKEND_URL, { method: 'POST', body: JSON.stringify(Object.assign({ action: action, idToken: SESSION.idToken }, body)) }).then(function (r) { return r.json(); });
   } catch (err) {
     console.warn('pdrPost_ error (' + action + '):', err);
     return { success: false, error: String(err) };
   }
 }
-
-async function loadApprovals() {
-  const body = document.getElementById('aprListBody');
+async function pdrGet_(action, params) {
   try {
-    const res = await fetch(PDR_BACKEND_URL + '?action=approvalslist&idToken=' + encodeURIComponent(SESSION.idToken)).then(function (r) { return r.json(); });
-    if (!res.success) {
-      body.innerHTML = '<div class="notice">Couldn’t load your requests: ' + aprEsc_(res.error || 'unknown error') + '</div>';
-      pdrReportAuthFailureIfNeeded_(res);
-      return;
-    }
-    aprRes = res; // apps-script/approvals.gs's aprList_ already scopes this to caller.email for a Teacher session
-    aprRenderStatusFilter_();
-    renderMyRequests_();
+    let url = PDR_BACKEND_URL + '?action=' + action + '&idToken=' + encodeURIComponent(SESSION.idToken);
+    Object.keys(params || {}).forEach(function (k) { url += '&' + k + '=' + encodeURIComponent(params[k]); });
+    return await fetch(url).then(function (r) { return r.json(); });
   } catch (err) {
-    body.innerHTML = '<div class="notice">Couldn’t reach the backend: ' + aprEsc_(err.message) + '</div>';
+    return { success: false, error: String(err) };
   }
 }
 
-function refreshApprovals() {
-  aprExpandedId = null;
-  document.getElementById('aprListBody').innerHTML = '<div class="loading-state"><div class="spinner"></div>Loading…</div>';
-  loadApprovals();
+// ── Tab navigation ──────────────────────────────────────────────────
+function goTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab-panel').forEach(function (p) { p.classList.remove('active'); });
+  document.getElementById('panel-' + tab).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(function (b) { b.classList.toggle('active', b.dataset.tab === tab); });
+  if (tab === 'requests' && !aprRes) loadApprovals();
+  if (tab === 'evals' && !evalsLoaded) loadEvals();
+  if (tab === 'tags' && !tagsLoaded) loadTags();
 }
 
+// ── MY REQUESTS (unchanged logic from Phase 1a, reskinned) ──────────
 function aprRenderStatusFilter_() {
   document.getElementById('aprStatusFilter').innerHTML = APR_STATUS_PILLS.map(function (s) {
     return '<button class="role-btn' + (s === APR_STATUS_FILTER ? ' active' : '') + '" onclick="aprSelectStatusFilter(\'' + s + '\')">' + s + '</button>';
   }).join('');
 }
-
-function aprSelectStatusFilter(status) {
-  APR_STATUS_FILTER = status;
-  aprExpandedId = null;
-  aprRenderStatusFilter_();
-  renderMyRequests_();
-}
-
+function aprSelectStatusFilter(status) { APR_STATUS_FILTER = status; aprExpandedId = null; aprRenderStatusFilter_(); renderMyRequests_(); }
 function aprStatusPillClass_(status) {
   if (status === 'Approved') return 'ok';
   if (status === 'Rejected') return 'none';
   if (status === 'Revoked') return 'revoked';
-  return 'amber'; // Pending, Info Requested
+  return 'amber';
 }
-
-// No campus/School column here -- every row IS "my own", scoped
-// server-side, unlike the Principal/Owner Approvals tab which shows a
-// campus (or every campus for Owner).
+async function loadApprovals() {
+  const body = document.getElementById('aprListBody');
+  const res = await pdrGet_('approvalslist', {});
+  if (!res.success) {
+    body.innerHTML = '<div class="notice">Couldn’t load your requests: ' + esc_(res.error || 'unknown error') + '</div>';
+    pdrReportAuthFailureIfNeeded_(res);
+    return;
+  }
+  aprRes = res;
+  document.getElementById('homeReqSub').textContent = res.requests.length + ' request' + (res.requests.length === 1 ? '' : 's') + ' on file';
+  aprRenderStatusFilter_();
+  renderMyRequests_();
+}
+function refreshApprovals() { aprExpandedId = null; document.getElementById('aprListBody').innerHTML = '<div class="loading-state"><div class="spinner"></div>Loading…</div>'; loadApprovals(); }
 function renderMyRequests_() {
   if (!aprRes) return;
   const body = document.getElementById('aprListBody');
   let rows = aprRes.requests.slice();
   if (APR_STATUS_FILTER !== 'All') rows = rows.filter(function (r) { return r.status === APR_STATUS_FILTER; });
-
-  if (!rows.length) {
-    body.innerHTML = '<div class="dash-empty">No ' + (APR_STATUS_FILTER === 'All' ? '' : APR_STATUS_FILTER.toLowerCase() + ' ') + 'requests yet.</div>';
-    return;
-  }
-
-  body.innerHTML = '<div class="tbl-wrap"><table><thead><tr>' +
-    '<th>Title</th><th>Category</th><th>Urgency</th><th>Status</th><th>Requested</th>' +
-    '</tr></thead><tbody>' + rows.map(aprRowHtml_).join('') + '</tbody></table></div>';
+  if (!rows.length) { body.innerHTML = '<div class="dash-empty">No ' + (APR_STATUS_FILTER === 'All' ? '' : APR_STATUS_FILTER.toLowerCase() + ' ') + 'requests yet.</div>'; return; }
+  body.innerHTML = rows.map(aprCardHtml_).join('');
 }
-
-function aprRowHtml_(r) {
+function aprCardHtml_(r) {
   const isExpanded = aprExpandedId === r.id;
-  let html = '<tr class="apr-row' + (isExpanded ? ' expanded' : '') + '" onclick="toggleApprovalRow(\'' + r.id + '\')">' +
-    '<td>' + aprEsc_(r.title) + '</td><td>' + aprEsc_(r.category) + '</td>' +
-    '<td>' + (r.urgency === 'Urgent' ? '<span class="pill urgent">Urgent</span>' : '—') + '</td>' +
-    '<td><span class="pill ' + aprStatusPillClass_(r.status) + '">' + r.status + '</span></td>' +
-    '<td>' + formatDDMMYYYY_(r.requestedAt) + '</td></tr>';
-  if (isExpanded) {
-    html += '<tr class="detail-row"><td colspan="5"><div class="apr-detail-wrap" id="aprDetailWrap">' +
-      '<div class="loading-state"><div class="spinner"></div>Loading…</div></div></td></tr>';
-  }
+  let html = '<div class="req-card" onclick="toggleApprovalRow(\'' + r.id + '\')">' +
+    '<div class="req-top"><span class="req-title">' + esc_(r.title) + '</span><span class="pill ' + aprStatusPillClass_(r.status) + '">' + r.status + '</span></div>' +
+    '<div class="req-meta">' + esc_(r.category) + (r.urgency === 'Urgent' ? ' · <span class="pill urgent">Urgent</span>' : '') + ' · ' + formatDDMMYYYY_(r.requestedAt) + '</div>';
+  if (isExpanded) html += '<div class="req-detail" id="aprDetailWrap"><div class="loading-state"><div class="spinner"></div>Loading…</div></div>';
+  html += '</div>';
   return html;
 }
-
 async function toggleApprovalRow(id) {
   if (aprExpandedId === id) { aprExpandedId = null; renderMyRequests_(); return; }
   aprExpandedId = id;
-  renderMyRequests_(); // shows the spinner row immediately
-  const res = await fetch(PDR_BACKEND_URL + '?action=approvaldetail&id=' + encodeURIComponent(id) + '&idToken=' + encodeURIComponent(SESSION.idToken)).then(function (r) { return r.json(); });
-  if (!res.success) {
-    pdrReportAuthFailureIfNeeded_(res);
-    const wrap = document.getElementById('aprDetailWrap');
-    if (wrap) wrap.innerHTML = '<div class="notice">Couldn’t load this request: ' + aprEsc_(res.error || 'unknown error') + '</div>';
-    return;
-  }
+  renderMyRequests_();
+  const res = await pdrGet_('approvaldetail', { id: id });
+  if (!res.success) { pdrReportAuthFailureIfNeeded_(res); const wrap = document.getElementById('aprDetailWrap'); if (wrap) wrap.innerHTML = '<div class="notice">Couldn’t load this request: ' + esc_(res.error || 'unknown error') + '</div>'; return; }
   const wrap = document.getElementById('aprDetailWrap');
-  if (wrap) wrap.outerHTML = aprDetailHtml_(res);
+  if (wrap) wrap.outerHTML = aprDetailInnerHtml_(res);
 }
-
-function aprDetailHtml_(res) {
+function aprDetailInnerHtml_(res) {
   const r = res.request;
   const meta = [];
-  if (r.evidenceLink) meta.push('Evidence: <a href="' + aprEsc_(r.evidenceLink) + '" target="_blank" rel="noopener">link</a>');
-  meta.push('Requested on ' + formatDDMMYYYY_(r.requestedAt));
-  if (r.decidedBy) meta.push(r.status + ' by ' + aprEsc_(r.decidedBy) + ' on ' + formatDDMMYYYY_(r.decidedAt));
-  if (r.decisionNote) meta.push('Note: ' + aprEsc_(r.decisionNote));
-
-  // A Teacher never decides -- res.canDecide is always false for this
-  // session, so there's deliberately no decide bar here at all (unlike
-  // the Principal/Owner Approvals tab).
-  const isReplyMoment = r.status === 'Info Requested'; // every row here is already "my own request"
+  if (r.evidenceLink) meta.push('Evidence: <a href="' + esc_(r.evidenceLink) + '" target="_blank" rel="noopener">link</a>');
+  meta.push('Requested ' + formatDDMMYYYY_(r.requestedAt));
+  if (r.decidedBy) meta.push(r.status + ' by ' + esc_(r.decidedBy) + ' on ' + formatDDMMYYYY_(r.decidedAt));
+  if (r.decisionNote) meta.push('Note: ' + esc_(r.decisionNote));
+  const isReplyMoment = r.status === 'Info Requested';
   const commentBoxHtml = (isReplyMoment ? '<div class="apr-reply-hint">More information was requested — your reply below sends this back to Pending.</div>' : '') +
     '<div class="add-row' + (isReplyMoment ? ' apr-reply-row' : '') + '">' +
     '<input type="text" id="aprCommentInput-' + r.id + '" placeholder="' + (isReplyMoment ? 'Reply with the info requested' : 'Add a comment') + '">' +
     '<button type="button" id="aprCommentPostBtn-' + r.id + '" onclick="submitApprovalComment(\'' + r.id + '\')">' + (isReplyMoment ? 'Reply' : 'Post') + '</button></div>';
-
-  return '<tr class="detail-row"><td colspan="5"><div class="apr-detail-wrap" id="aprDetailWrap">' +
-    '<div class="apr-desc">' + aprEsc_(r.description) + '</div>' +
+  return '<div class="req-detail" id="aprDetailWrap">' +
+    '<div class="apr-desc">' + esc_(r.description) + '</div>' +
     '<div class="apr-meta-row"><span>' + meta.join('</span><span>') + '</span></div>' +
     '<div class="apr-comments">' + aprCommentsHtml_(res.comments, r.id) + '</div>' +
-    commentBoxHtml +
-    '</div></td></tr>';
+    commentBoxHtml + '</div>';
 }
-
 function aprCommentsHtml_(comments, approvalId) {
   if (!comments.length) return '<div class="detail-empty">No comments yet.</div>';
   return comments.map(function (c) {
     const canDelete = c.authorEmail === SESSION.email;
-    return '<div class="apr-comment"><div class="apr-comment-meta">' + aprEsc_(c.authorEmail) + ' (' + aprEsc_(c.authorRole || '—') + ') · ' + formatDDMMYYYY_(c.postedAt) +
+    return '<div class="apr-comment"><div class="apr-comment-meta">' + esc_(c.authorEmail) + ' (' + esc_(c.authorRole || '—') + ') · ' + formatDDMMYYYY_(c.postedAt) +
       (canDelete ? ' · <a href="#" class="apr-comment-del" onclick="deleteApprovalComment(\'' + c.id + '\',\'' + approvalId + '\');return false;">Delete</a>' : '') +
-      '</div>' + aprEsc_(c.body) + '</div>';
+      '</div>' + esc_(c.body) + '</div>';
   }).join('');
 }
-
 async function deleteApprovalComment(commentId, approvalId) {
   if (!confirm('Delete this comment?')) return;
   const res = await pdrPost_('deleteapprovalcomment', { id: commentId });
   if (!res.success) { pdrReportAuthFailureIfNeeded_(res); alert('Couldn’t delete that comment' + (res.error ? ': ' + res.error : '') + '.'); return; }
-  toggleApprovalRow(approvalId);
-  toggleApprovalRow(approvalId); // close then reopen -- cheapest way to pull the fresh comment thread
+  toggleApprovalRow(approvalId); toggleApprovalRow(approvalId);
 }
-
 async function submitApprovalComment(id) {
   const input = document.getElementById('aprCommentInput-' + id);
   const btn = document.getElementById('aprCommentPostBtn-' + id);
   if (btn.disabled) return;
   const text = input.value.trim();
   if (!text) return;
-  input.disabled = true;
-  btn.disabled = true;
+  input.disabled = true; btn.disabled = true;
   const res = await pdrPost_('addapprovalcomment', { approvalId: id, body: text });
-  input.disabled = false;
-  btn.disabled = false;
+  input.disabled = false; btn.disabled = false;
   if (!res.success) { pdrReportAuthFailureIfNeeded_(res); alert('Couldn’t post that comment' + (res.error ? ': ' + res.error : '') + '.'); return; }
   input.value = '';
-  if (res.status && aprRes) {
-    const cachedRow = aprRes.requests.filter(function (r) { return r.id === id; })[0];
-    if (cachedRow) cachedRow.status = res.status;
-  }
-  toggleApprovalRow(id);
-  toggleApprovalRow(id);
+  if (res.status && aprRes) { const cachedRow = aprRes.requests.filter(function (r) { return r.id === id; })[0]; if (cachedRow) cachedRow.status = res.status; }
+  toggleApprovalRow(id); toggleApprovalRow(id);
 }
-
 async function submitApprovalRequest() {
   const btn = document.getElementById('aprSubmitBtn');
   if (btn.disabled) return;
@@ -392,60 +441,157 @@ async function submitApprovalRequest() {
   const title = document.getElementById('aprTitle').value.trim();
   const description = document.getElementById('aprDescription').value.trim();
   if (!title || !description) { alert('Title and description are both required.'); return; }
-  btn.disabled = true;
-  const originalLabel = btn.textContent;
-  btn.textContent = 'Submitting…';
+  btn.disabled = true; const originalLabel = btn.textContent; btn.textContent = 'Submitting…';
   try {
-    const res = await pdrPost_('submitapproval', {
-      category: category,
-      urgency: document.getElementById('aprUrgency').value,
-      title: title,
-      description: description,
-      evidenceLink: document.getElementById('aprEvidenceLink').value.trim(),
-    });
-    if (!res.success) {
-      pdrReportAuthFailureIfNeeded_(res);
-      alert('Something went wrong submitting the request' + (res.error ? ': ' + res.error : '') + ' — please try again.');
-      return;
-    }
-    document.getElementById('aprTitle').value = '';
-    document.getElementById('aprDescription').value = '';
-    document.getElementById('aprEvidenceLink').value = '';
+    const res = await pdrPost_('submitapproval', { category: category, urgency: document.getElementById('aprUrgency').value, title: title, description: description, evidenceLink: document.getElementById('aprEvidenceLink').value.trim() });
+    if (!res.success) { pdrReportAuthFailureIfNeeded_(res); alert('Something went wrong submitting the request' + (res.error ? ': ' + res.error : '') + ' — please try again.'); return; }
+    document.getElementById('aprTitle').value = ''; document.getElementById('aprDescription').value = ''; document.getElementById('aprEvidenceLink').value = '';
     alert('Request submitted.');
     refreshApprovals();
-  } finally {
-    btn.disabled = false;
-    btn.textContent = originalLabel;
+  } finally { btn.disabled = false; btn.textContent = originalLabel; }
+}
+
+// ── MY EVALUATIONS (SS) — new, reads action=myssstats ───────────────
+let evalsLoaded = false;
+async function loadEvals() {
+  const body = document.getElementById('evalsBody');
+  const res = await pdrGet_('myssstats', {});
+  evalsLoaded = true;
+  if (!res.success) { body.innerHTML = '<div class="notice">Couldn’t load your evaluations: ' + esc_(res.error || 'unknown error') + '</div>'; pdrReportAuthFailureIfNeeded_(res); return; }
+  if (!res.found) {
+    body.innerHTML = '<div class="dash-empty">No Teacher SS submissions found under your name yet (' + esc_(res.name || 'your account') + '). If your Principal has already evaluated you and this looks wrong, it may be a name-spelling mismatch — flag it so it can be fixed.</div>';
+    document.getElementById('homeEvalSub').textContent = 'No submissions yet';
+    setHomeStat_(0, 'ss', '—');
+    return;
   }
+  const s = res.stats;
+  document.getElementById('homeEvalSub').textContent = s.submissionCount + ' submission' + (s.submissionCount === 1 ? '' : 's') + ' · avg ' + s.avgTotal + '/100';
+  setHomeStat_(0, 'ss', s.avgTotal + '/100');
+  const rubricHtml = res.rubricParams.map(function (name, i) {
+    const val = s.avgPerParam[i]; // out of 10
+    const pct = Math.max(0, Math.min(100, val * 10));
+    return '<div class="rubric-row"><div class="rr-top"><span class="rr-name">' + esc_(name) + '</span><span class="rr-val">' + val + '/10</span></div><div class="rubric-bar"><div style="width:' + pct + '%"></div></div></div>';
+  }).join('');
+  body.innerHTML =
+    '<div class="stat-grid">' +
+      '<div class="stat-tile"><div class="num">' + s.avgTotal + '</div><div class="lbl">Avg Score / 100</div></div>' +
+      '<div class="stat-tile green"><div class="num">' + s.submissionCount + '</div><div class="lbl">Submissions</div></div>' +
+    '</div>' +
+    '<div class="card"><p class="card-title">Rubric Breakdown<span style="font-weight:600;color:var(--gray);text-transform:none;letter-spacing:0">Last submitted ' + formatDDMMYYYY_(s.lastSubmission) + '</span></p>' + rubricHtml + '</div>';
+}
+
+// ── MY CW/HW TAGS — new, reads the existing public CWHW proxy,
+// filters client-side to the signed-in teacher's own name (same
+// exposure level the proxy already has for every other viewer of this
+// data — see the CWHW_PROXY_URL comment above). ─────────────────────
+let tagsLoaded = false;
+const TAG_CLASS_MAP = [
+  ['cwa', 'tag-cwa'], ['ott', 'tag-ott'], ['teach', 'tag-teaching'],
+  ['revis', 'tag-revise'], ['remedial', 'tag-remedial'],
+];
+const TAG_COLOR_MAP = { 'tag-cwa': '#15803d', 'tag-ott': '#1d4ed8', 'tag-teaching': '#6d28d9', 'tag-revise': '#b45309', 'tag-remedial': '#CE0000', 'tag-default': '#8A96A6' };
+function tagClass_(tag) {
+  const t = tag.toLowerCase();
+  for (let i = 0; i < TAG_CLASS_MAP.length; i++) if (t.indexOf(TAG_CLASS_MAP[i][0]) !== -1) return TAG_CLASS_MAP[i][1];
+  return 'tag-default';
+}
+function splitTags_(tagStr) { return String(tagStr || '').split(',').map(function (t) { return t.trim(); }).filter(Boolean); }
+
+async function loadTags() {
+  const body = document.getElementById('tagsBody');
+  tagsLoaded = true;
+  let data;
+  try {
+    data = await fetch(CWHW_PROXY_URL, { cache: 'no-cache' }).then(function (r) { return r.json(); });
+  } catch (err) {
+    body.innerHTML = '<div class="notice">Couldn’t reach the CW/HW data source: ' + esc_(err.message) + '</div>';
+    return;
+  }
+  if (!data || !Array.isArray(data.cwRecords)) {
+    body.innerHTML = '<div class="notice">CW/HW data source returned something unexpected — try again shortly.</div>';
+    return;
+  }
+  const myName = String(SESSION.name || '').trim().toLowerCase();
+  const mine = data.cwRecords.filter(function (r) { return String(r.teacher || '').trim().toLowerCase() === myName; });
+  if (!mine.length) {
+    body.innerHTML = '<div class="dash-empty">No CW/HW log entries found under your name yet (' + esc_(SESSION.name || 'your account') + '). If you have been logging and this looks wrong, it may be a name-spelling mismatch — flag it so it can be fixed.</div>';
+    setHomeStat_(1, 'tags', 0);
+    return;
+  }
+  const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  const recent = mine.filter(function (r) { return r.timeMs >= cutoff; });
+
+  // Tag frequency across CW + HW tags in the last 30 days
+  const freq = {};
+  recent.forEach(function (r) {
+    splitTags_(r.cwTag).concat(splitTags_(r.hwTag)).forEach(function (t) {
+      const key = t; freq[key] = (freq[key] || 0) + 1;
+    });
+  });
+  const freqList = Object.keys(freq).map(function (k) { return { tag: k, count: freq[k] }; }).sort(function (a, b) { return b.count - a.count; });
+  const maxCount = freqList.length ? freqList[0].count : 1;
+
+  // Real logging streak (7-day window) -- consecutive most-recent days
+  // with at least one CW or HW entry, computed from actual timestamps,
+  // not simulated.
+  const daySet = {};
+  mine.forEach(function (r) { const d = new Date(r.timeMs); daySet[d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate()] = true; });
+  const dayDots = [];
+  let streak = 0, streakBroken = false;
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(Date.now() - i * 86400000);
+    const key = d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
+    const hit = !!daySet[key];
+    dayDots.unshift(hit);
+    if (!streakBroken) { if (hit) streak++; else streakBroken = true; }
+  }
+  renderStreak_(streak);
+  setHomeStat_(1, 'tags', recent.length);
+  document.getElementById('homeTagSub').textContent = recent.length + ' log' + (recent.length === 1 ? '' : 's') + ' in the last 30 days';
+
+  const freqHtml = freqList.length ? freqList.map(function (f) {
+    const cls = tagClass_(f.tag);
+    const pct = Math.round((f.count / maxCount) * 100);
+    return '<div class="tagfreq-row"><span class="tf-name"><span class="tag-chip ' + cls + '">' + esc_(f.tag) + '</span></span><div class="tagfreq-bar"><div style="width:' + pct + '%;background:' + TAG_COLOR_MAP[cls] + '"></div></div><span class="tf-count">' + f.count + '</span></div>';
+  }).join('') : '<div class="detail-empty">No tagged CW/HW entries in the last 30 days.</div>';
+
+  const dotsHtml = dayDots.map(function (hit) { return '<div class="day-dot' + (hit ? ' hit' : '') + '"></div>'; }).join('');
+
+  body.innerHTML =
+    '<div class="card"><p class="card-title">Last 7 Days</p><div class="day-strip">' + dotsHtml + '</div></div>' +
+    '<div class="card"><p class="card-title">Tag Frequency — Last 30 Days</p>' + freqHtml + '</div>';
+}
+
+// ── Home helpers ─────────────────────────────────────────────────
+function setHomeStat_(tileIndex, kind, value) {
+  const grid = document.getElementById('homeStatGrid');
+  const tile = grid.children[tileIndex];
+  if (tile) tile.querySelector('.num').textContent = value;
+}
+function renderStreak_(streak) {
+  const wrap = document.getElementById('streakPillWrap');
+  if (!streak) { wrap.innerHTML = ''; return; }
+  wrap.innerHTML = '<div class="streak-pill">🔥 ' + streak + '-day CW/HW logging streak</div>';
 }
 
 function showDenied_(message) {
   document.getElementById('deniedBox').style.display = 'block';
-  document.getElementById('deniedBox').innerHTML =
-    '<div class="denied"><div class="icon">🔒</div><h3>Not available</h3><p>' + aprEsc_(message) + '</p></div>';
+  document.getElementById('deniedBox').innerHTML = '<div class="denied"><div class="icon">🔒</div><h3>Not available</h3><p>' + esc_(message) + '</p></div>';
 }
 
-// Matches every other module page's init() pattern: read the cached
-// session directly (no requireSession() call here) and run -- the top
-// gate script owns sign-in + reload, so by the time this visually
-// matters a session already exists. On first load with no cache yet,
-// this runs once against a null session (denied box, harmless) while
-// the gate overlay hides it; sign-in reloads the page and this reruns
-// for real.
 function init() {
   SESSION = LMCS.getSession();
-  // Teacher Portal is scoped to the Teacher role specifically -- a
-  // Principal/Coordinator/Owner already has the full Approvals tab
-  // (with campus scoping, decide rights, every category) on their own
-  // Principal's Daily Reporting page; this page would just show them a
-  // strictly smaller view of the same data.
   if (!SESSION || !LMCS.hasRole(SESSION, 'Teacher')) {
     showDenied_('The Teacher Portal is for Teacher accounts. Principals/Coordinators/Owner already have the full Approvals workflow on the Principal’s Daily Reporting page.');
     return;
   }
+  document.getElementById('hdrGreeting').textContent = 'Hey, ' + (SESSION.name ? SESSION.name.split(' ')[0] : 'there') + ' 👋';
   document.getElementById('aprCategory').innerHTML = APR_CATEGORIES.map(function (c) { return '<option value="' + c + '">' + c + '</option>'; }).join('');
   document.getElementById('appArea').style.display = '';
+  document.getElementById('bottomNav').style.display = 'flex';
   loadApprovals();
+  loadEvals();
+  loadTags();
 }
 init();
 </script>
