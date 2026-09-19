@@ -439,7 +439,7 @@ function init() {
   // (with campus scoping, decide rights, every category) on their own
   // Principal's Daily Reporting page; this page would just show them a
   // strictly smaller view of the same data.
-  if (!SESSION || SESSION.role !== 'Teacher') {
+  if (!SESSION || !LMCS.hasRole(SESSION, 'Teacher')) {
     showDenied_('The Teacher Portal is for Teacher accounts. Principals/Coordinators/Owner already have the full Approvals workflow on the Principal’s Daily Reporting page.');
     return;
   }
