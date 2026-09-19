@@ -175,10 +175,11 @@ select:focus,input:focus,textarea:focus{outline:none;border-color:var(--red)}
 
     <!-- ══════════════════ HOME ══════════════════ -->
     <div class="tab-panel active" id="panel-home">
-      <div class="stat-grid" id="homeStatGrid">
-        <div class="stat-tile"><div class="num">—</div><div class="lbl">SS Avg Score</div></div>
-        <div class="stat-tile green"><div class="num">—</div><div class="lbl">CW/HW Logs (7d)</div></div>
+      <div class="card" id="rankCard" style="background:linear-gradient(135deg,var(--red),#ff5b5b);color:#fff;border:none">
+        <p class="card-title" style="color:#fff">🏆 My Rank<span style="font-weight:600;text-transform:none;letter-spacing:0;opacity:.85;font-size:10.5px">Draft — not yet your official incentive</span></p>
+        <div id="rankBody"><div class="loading-state"><div class="spinner" style="border-color:rgba(255,255,255,.3);border-top-color:#fff"></div>Loading…</div></div>
       </div>
+
       <div class="card" id="eventsCard">
         <p class="card-title">📅 Upcoming Events<span id="eventsCampusLabel" style="font-weight:600;color:var(--gray);text-transform:none;letter-spacing:0"></span></p>
         <div id="eventsBody"><div class="loading-state"><div class="spinner"></div>Loading…</div></div>
@@ -472,12 +473,10 @@ async function loadEvals() {
   if (!res.found) {
     body.innerHTML = '<div class="dash-empty">No Teacher SS submissions found under your name yet (' + esc_(res.name || 'your account') + '). If your Principal has already evaluated you and this looks wrong, it may be a name-spelling mismatch — flag it so it can be fixed.</div>';
     document.getElementById('homeEvalSub').textContent = 'No submissions yet';
-    setHomeStat_(0, 'ss', '—');
     return;
   }
   const s = res.stats;
   document.getElementById('homeEvalSub').textContent = s.submissionCount + ' submission' + (s.submissionCount === 1 ? '' : 's') + ' · avg ' + s.avgTotal + '/100';
-  setHomeStat_(0, 'ss', s.avgTotal + '/100');
   const rubricHtml = res.rubricParams.map(function (name, i) {
     const val = s.avgPerParam[i]; // out of 10
     const pct = Math.max(0, Math.min(100, val * 10));
@@ -500,6 +499,18 @@ const TAG_CLASS_MAP = [
   ['cwa', 'tag-cwa'], ['ott', 'tag-ott'], ['teach', 'tag-teaching'],
   ['revis', 'tag-revise'], ['remedial', 'tag-remedial'],
 ];
+// Ported from daily-progress.html's DAILY_SCHOOL_NAMES/dailySchoolToLMS
+// (also mirrored server-side in apps-script/teacher-portal.gs's
+// TP_LMS_LAST_WORD) -- without this, a teacher name shared across two
+// campuses would have their CW/HW logs merged together below, since
+// cwRecords spans every campus in one payload.
+const TT_LMS_LAST_WORD = { LMS1: 'kullu', LMS2: 'kelheli', LMS3: 'dunkhra', LMS4: 'nerchowk', LMS5: 'sayoli', LMS6: 'jogindernagar' };
+const TT_LMS_ALIASES = { LMS6: ['guru international'] };
+function recordMatchesMyCampus_(schoolName) {
+  const school = String(schoolName || '').toLowerCase();
+  if (school.indexOf(TT_LMS_LAST_WORD[SESSION.campusId] || ' ') !== -1) return true;
+  return (TT_LMS_ALIASES[SESSION.campusId] || []).some(function (a) { return school.indexOf(a) !== -1; });
+}
 const TAG_COLOR_MAP = { 'tag-cwa': '#15803d', 'tag-ott': '#1d4ed8', 'tag-teaching': '#6d28d9', 'tag-revise': '#b45309', 'tag-remedial': '#CE0000', 'tag-default': '#8A96A6' };
 function tagClass_(tag) {
   const t = tag.toLowerCase();
@@ -523,10 +534,9 @@ async function loadTags() {
     return;
   }
   const myName = String(SESSION.name || '').trim().toLowerCase();
-  const mine = data.cwRecords.filter(function (r) { return String(r.teacher || '').trim().toLowerCase() === myName; });
+  const mine = data.cwRecords.filter(function (r) { return recordMatchesMyCampus_(r.school) && String(r.teacher || '').trim().toLowerCase() === myName; });
   if (!mine.length) {
     body.innerHTML = '<div class="dash-empty">No CW/HW log entries found under your name yet (' + esc_(SESSION.name || 'your account') + '). If you have been logging and this looks wrong, it may be a name-spelling mismatch — flag it so it can be fixed.</div>';
-    setHomeStat_(1, 'tags', 0);
     return;
   }
   const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
@@ -557,7 +567,6 @@ async function loadTags() {
     if (!streakBroken) { if (hit) streak++; else streakBroken = true; }
   }
   renderStreak_(streak);
-  setHomeStat_(1, 'tags', recent.length);
   document.getElementById('homeTagSub').textContent = recent.length + ' log' + (recent.length === 1 ? '' : 's') + ' in the last 30 days';
 
   const freqHtml = freqList.length ? freqList.map(function (f) {
@@ -640,12 +649,29 @@ function renderTimetableDay_() {
   }).join('');
 }
 
-// ── Home helpers ─────────────────────────────────────────────────
-function setHomeStat_(tileIndex, kind, value) {
-  const grid = document.getElementById('homeStatGrid');
-  const tile = grid.children[tileIndex];
-  if (tile) tile.querySelector('.num').textContent = value;
+// ── MY RANK — action=myrankscore, 50% SS + 50% CW/HW Regularity,
+// ranked within the caller's own campus. Explicitly labeled "draft" in
+// the card itself (see the HTML) -- this is not wired to actual
+// payroll, which still runs off a separate Excel workbook; see
+// apps-script/teacher-portal.gs's header for the full reasoning. ────
+async function loadRank_() {
+  const body = document.getElementById('rankBody');
+  const res = await pdrGet_('myrankscore', {});
+  if (!res.success) { body.innerHTML = '<div class="notice" style="background:rgba(255,255,255,.92)">Couldn’t load your rank: ' + esc_(res.error || 'unknown error') + '</div>'; pdrReportAuthFailureIfNeeded_(res); return; }
+  if (!res.found) {
+    body.innerHTML = '<div style="font-size:12.5px;line-height:1.6;opacity:.95">Not enough data yet to compute your rank — this needs your name to resolve to an Employee Code, plus at least some SS or CW/HW activity. If you know you have both and this looks wrong, it may be a name-matching gap worth flagging.</div>';
+    return;
+  }
+  body.innerHTML =
+    '<div style="font-size:38px;font-weight:800;line-height:1">#' + res.rank + ' <span style="font-size:16px;font-weight:600;opacity:.85">of ' + res.totalTeachers + '</span></div>' +
+    '<div style="font-size:12px;opacity:.9;margin:2px 0 14px">at ' + esc_(LMCS.campusLabel(res.campusId)) + ' — combined score ' + res.total + '/100</div>' +
+    '<div style="display:flex;gap:10px">' +
+      '<div style="flex:1;background:rgba(255,255,255,.18);border-radius:10px;padding:10px"><div style="font-size:20px;font-weight:800">' + res.ssScore + '</div><div style="font-size:10px;opacity:.9">SS Score (50%)</div></div>' +
+      '<div style="flex:1;background:rgba(255,255,255,.18);border-radius:10px;padding:10px"><div style="font-size:20px;font-weight:800">' + res.regularityPct + '%</div><div style="font-size:10px;opacity:.9">Regularity, ' + res.windowDays + 'd (50%)</div></div>' +
+    '</div>';
 }
+
+// ── Home helpers ─────────────────────────────────────────────────
 function renderStreak_(streak) {
   const wrap = document.getElementById('streakPillWrap');
   if (!streak) { wrap.innerHTML = ''; return; }
@@ -672,6 +698,7 @@ function init() {
   loadTags();
   loadEvents_();
   loadTimetable_();
+  loadRank_();
 }
 init();
 </script>
