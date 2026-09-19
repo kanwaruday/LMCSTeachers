@@ -19,11 +19,28 @@ separate backend or auth system.
 
 ## Status
 
-**Phase 0 + 1a only** (My Requests — leave & other approvals, self-scoped to the
-signed-in teacher's own submissions). See `LMCSManagement`'s vault note
-(`work/active/lmcs-management.md`) for the full phased plan: Timetable, Period
-Adjustments, Forms Hub, CW/HW tag-based coaching, live SS/incentive visibility,
-and the gamification layer are later phases, not yet built.
+Built so far, all on the Home tab or its own bottom-nav tab: **My Requests**
+(leave & other approvals, self-scoped), **My Evaluations** (own Teacher SS
+scores, `action=myssstats`), **My CW/HW Patterns** (own tag frequency, reads
+the existing public CWHW proxy client-side), **Upcoming Events** (campus
+official Calendar, `action=myupcomingevents`, reuses `principal-dr.gs`'s
+`pdrSchoolCalendarEvents_`), **Your Timetable** (see `data/timetable.json`
+below). Not yet built: Period Adjustments (no existing process to digitize —
+needs real design first), a Forms Hub, and target-based CW/HW coaching (needs
+Uday to define expected ranges per tag). See `LMCSManagement`'s vault note
+(`work/active/lmcs-management.md`) for the full phased plan.
+
+## `data/timetable.json`
+
+Static asset, not live data — a personal-timetable lookup keyed
+`campusId -> teacherNameLower -> {periods:[...]}`, generated once from
+`all-campuses__timetable.csv` (the `lms-timetable-extractor` skill's output).
+No LMS1 data yet — the source extraction hasn't covered that campus.
+Regenerate by re-running the extractor on a fresh timetable export and
+re-running the conversion (campus `"LMS 2"` → `"LMS2"`, day names normalized
+to `Mon`..`Sat`, `BREAK` rows and rows with no assigned teacher dropped,
+teacher matched by lowercased name — same honest-not-found pattern the app
+uses everywhere else if a name doesn't match).
 
 ## Deploy
 

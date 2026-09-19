@@ -179,6 +179,17 @@ select:focus,input:focus,textarea:focus{outline:none;border-color:var(--red)}
         <div class="stat-tile"><div class="num">—</div><div class="lbl">SS Avg Score</div></div>
         <div class="stat-tile green"><div class="num">—</div><div class="lbl">CW/HW Logs (7d)</div></div>
       </div>
+      <div class="card" id="eventsCard">
+        <p class="card-title">📅 Upcoming Events<span id="eventsCampusLabel" style="font-weight:600;color:var(--gray);text-transform:none;letter-spacing:0"></span></p>
+        <div id="eventsBody"><div class="loading-state"><div class="spinner"></div>Loading…</div></div>
+      </div>
+
+      <div class="card" id="timetableCard">
+        <p class="card-title">🗓️ Your Timetable</p>
+        <div id="ttDayPicker" class="role-picker" style="margin-bottom:10px"></div>
+        <div id="timetableBody"><div class="loading-state"><div class="spinner"></div>Loading…</div></div>
+      </div>
+
       <div class="quick-link" onclick="goTab('requests')">
         <div class="ico">📝</div>
         <div class="txt"><b>My Requests</b><span id="homeReqSub">Leave & other approvals</span></div>
@@ -194,7 +205,7 @@ select:focus,input:focus,textarea:focus{outline:none;border-color:var(--red)}
         <div class="txt"><b>My CW/HW Patterns</b><span id="homeTagSub">What you've been teaching</span></div>
         <div class="chev">›</div>
       </div>
-      <div class="notice" style="margin-top:4px">More on the way: timetable, period adjustments, a forms hub, and target-based coaching on your CW/HW patterns (that last one needs Uday to define expected ranges per tag first — patterns below are real data, not yet compared against a target).</div>
+      <div class="notice" style="margin-top:4px">More on the way: period adjustments (still needs the actual covering process designed — nothing formal exists today), a forms hub, and target-based coaching on your CW/HW patterns (needs Uday to define expected ranges per tag first — patterns below are real data, not yet compared against a target).</div>
     </div>
 
     <!-- ══════════════════ MY REQUESTS ══════════════════ -->
@@ -562,6 +573,73 @@ async function loadTags() {
     '<div class="card"><p class="card-title">Tag Frequency — Last 30 Days</p>' + freqHtml + '</div>';
 }
 
+// ── UPCOMING EVENTS — action=myupcomingevents, campus official
+// Calendar, next 14 days (server-side window, see principal-dr.gs). ──
+async function loadEvents_() {
+  const body = document.getElementById('eventsBody');
+  const res = await pdrGet_('myupcomingevents', {});
+  if (!res.success) { body.innerHTML = '<div class="notice">Couldn’t load events: ' + esc_(res.error || 'unknown error') + '</div>'; pdrReportAuthFailureIfNeeded_(res); return; }
+  document.getElementById('eventsCampusLabel').textContent = LMCS.campusLabel(res.campusId);
+  if (!res.events.length) { body.innerHTML = '<div class="dash-empty">Nothing on the school calendar in the next 14 days.</div>'; return; }
+  const todayStr = new Date().toDateString();
+  const tomorrowStr = new Date(Date.now() + 86400000).toDateString();
+  body.innerHTML = res.events.map(function (e) {
+    const d = new Date(e.start);
+    let when = d.toDateString() === todayStr ? 'Today' : (d.toDateString() === tomorrowStr ? 'Tomorrow' : formatDDMMYYYY_(e.start));
+    if (!e.allDay) when += ' · ' + d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+    return '<div class="quick-link" style="cursor:default"><div class="ico" style="font-size:16px">📌</div><div class="txt"><b>' + esc_(e.title) + '</b><span>' + esc_(when) + '</span></div></div>';
+  }).join('');
+}
+
+// ── YOUR TIMETABLE — static data/timetable.json (see this repo's
+// preprocessing note in README), matched by SESSION.name against the
+// campus's teacher list, same honest not-found pattern as My
+// Evaluations / My CW/HW Patterns above. No LMS1 data yet -- source
+// timetable extraction hasn't covered that campus (told to the teacher
+// plainly rather than showing an empty grid as if that were real). ──
+const TIMETABLE_URL = 'data/timetable.json';
+const TT_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+let myTimetable_ = null; // {periods:[...]} once loaded
+let ttSelectedDay = TT_DAYS[Math.max(0, Math.min(5, new Date().getDay() - 1))]; // Sun(0) clamps to Mon
+
+async function loadTimetable_() {
+  const body = document.getElementById('timetableBody');
+  let data;
+  try {
+    data = await fetch(TIMETABLE_URL, { cache: 'no-cache' }).then(function (r) { return r.json(); });
+  } catch (err) {
+    body.innerHTML = '<div class="notice">Couldn’t load timetable data: ' + esc_(err.message) + '</div>';
+    return;
+  }
+  const campusData = data.campuses[SESSION.campusId];
+  if (!campusData) {
+    body.innerHTML = '<div class="dash-empty">Timetable data for ' + esc_(LMCS.campusLabel(SESSION.campusId)) + ' isn’t available yet — it hasn’t been digitized for this campus.</div>';
+    document.getElementById('ttDayPicker').innerHTML = '';
+    return;
+  }
+  const myName = String(SESSION.name || '').trim().toLowerCase();
+  myTimetable_ = campusData[myName] || null;
+  if (!myTimetable_) {
+    body.innerHTML = '<div class="dash-empty">No timetable entries found under your name (' + esc_(SESSION.name || 'your account') + '). If you do teach regular periods and this looks wrong, it may be a name-spelling mismatch — flag it so it can be fixed.</div>';
+    document.getElementById('ttDayPicker').innerHTML = '';
+    return;
+  }
+  document.getElementById('ttDayPicker').innerHTML = TT_DAYS.map(function (d) {
+    return '<button class="role-btn' + (d === ttSelectedDay ? ' active' : '') + '" onclick="ttSelectDay_(\'' + d + '\')">' + d + '</button>';
+  }).join('');
+  renderTimetableDay_();
+}
+function ttSelectDay_(day) { ttSelectedDay = day; document.querySelectorAll('#ttDayPicker .role-btn').forEach(function (b) { b.classList.toggle('active', b.textContent === day); }); renderTimetableDay_(); }
+function renderTimetableDay_() {
+  const body = document.getElementById('timetableBody');
+  if (!myTimetable_) return;
+  const rows = myTimetable_.periods.filter(function (p) { return p.day === ttSelectedDay; });
+  if (!rows.length) { body.innerHTML = '<div class="dash-empty">No periods on ' + ttSelectedDay + '.</div>'; return; }
+  body.innerHTML = rows.map(function (p) {
+    return '<div class="quick-link" style="cursor:default"><div class="ico" style="font-size:13px;font-weight:800">' + esc_(p.start) + '</div><div class="txt"><b>' + esc_(p.subject || '—') + '</b><span>' + esc_(p.class) + '</span></div></div>';
+  }).join('');
+}
+
 // ── Home helpers ─────────────────────────────────────────────────
 function setHomeStat_(tileIndex, kind, value) {
   const grid = document.getElementById('homeStatGrid');
@@ -592,6 +670,8 @@ function init() {
   loadApprovals();
   loadEvals();
   loadTags();
+  loadEvents_();
+  loadTimetable_();
 }
 init();
 </script>
