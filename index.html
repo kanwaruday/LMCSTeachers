@@ -147,6 +147,7 @@ select:focus,input:focus,textarea:focus{outline:none;border-color:var(--red)}
 .tag-teaching{background:var(--purple-lt);color:var(--purple)}
 .tag-revise{background:var(--amber-lt);color:var(--amber)}
 .tag-remedial{background:#fee2e2;color:var(--red)}
+.tag-checking{background:#f0fdf4;color:#16a34a}
 .tag-default{background:var(--lgray);color:var(--gray)}
 .tagfreq-row{display:flex;align-items:center;gap:10px;margin-bottom:9px}
 .tagfreq-row .tf-name{width:96px;flex-shrink:0;font-size:11.5px;font-weight:700}
@@ -761,15 +762,25 @@ async function loadTimetable_() {
   renderTimetableDay_();
 }
 function ttSelectDay_(day) { ttSelectedDay = day; document.querySelectorAll('#ttDayPicker .role-btn').forEach(function (b) { b.classList.toggle('active', b.textContent === day); }); renderTimetableDay_(); }
+// Full canonical period grid (2026-09-20, per Uday) -- every school
+// runs a fixed-count period day (9 at most campuses, 8 at LMS6 --
+// genuinely absent in the source data, not a bug, see README), with
+// predefined timing derived from the majority time seen per period at
+// that campus. Every period shows, whether this teacher has a class
+// in it or not -- an unassigned slot is a real "Checking Period" (free
+// period, commonly used for notebook checking), tagged rather than
+// just left blank. No scroll-list wrapper here (unlike Upcoming
+// Events) -- a day's periods are a small, bounded list; showing all of
+// them without scrolling is the point of this change.
 function renderTimetableDay_() {
   const body = document.getElementById('timetableBody');
   if (!myTimetable_) return;
-  const rows = myTimetable_.periods.filter(function (p) { return p.day === ttSelectedDay; });
+  const rows = myTimetable_.periods.filter(function (p) { return p.day === ttSelectedDay; }).sort(function (a, b) { return a.period - b.period; });
   if (!rows.length) { body.innerHTML = '<div class="dash-empty">No periods on ' + ttSelectedDay + '.</div>'; return; }
-  const rowsHtml = rows.map(function (p) {
-    return '<div class="event-row"><span class="ico" style="font-weight:800;width:44px;flex-shrink:0">' + esc_(p.start) + '</span><div class="txt"><b>' + esc_(p.subject || '—') + '</b><span>' + esc_(p.class) + '</span></div></div>';
+  body.innerHTML = rows.map(function (p) {
+    const sub = p.free ? '<span class="tag-chip tag-checking">Checking Period</span>' : esc_(p.class || '—');
+    return '<div class="event-row"><span class="ico" style="font-weight:800;width:44px;flex-shrink:0">' + esc_(p.start) + '</span><div class="txt"><b>' + (p.free ? 'Free' : esc_(p.subject || '—')) + '</b><span>' + sub + '</span></div></div>';
   }).join('');
-  body.innerHTML = '<div class="scroll-list">' + rowsHtml + '</div>';
 }
 
 // ── MY RANK — action=myrankscore, 50% SS + 50% CW/HW Regularity,

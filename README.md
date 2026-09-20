@@ -59,18 +59,33 @@ EmployeeCode was a real example in the timetable source). Two layers:
 ## `data/timetable.json`
 
 Static asset, not live data — a personal-timetable lookup keyed
-`campusId -> TeacherEmployeeCode -> {periods:[...]}` (re-keyed 2026-09-20;
-was name-keyed before), generated once from `all-campuses__timetable.csv`
-(the `lms-timetable-extractor` skill's output). No LMS1 data yet — the source
-extraction hasn't covered that campus. **Code-keying tradeoff:** 562 of the
+`campusId -> TeacherEmployeeCode -> {name, periods:[...]}`, generated once
+from `all-campuses__timetable.csv` (the `lms-timetable-extractor` skill's
+output). No LMS1 data yet — the source extraction hasn't covered that campus.
+
+**Full-grid rebuild (2026-09-20, per Uday):** every period entry is now
+emitted for every teacher on every day, whether they have a class in it or
+not — an unassigned slot carries `free: true` and renders as a "Checking
+Period" in the UI, instead of the row being silently absent. Canonical
+per-period timing is derived per campus as the *majority* `(start, end)` seen
+for that period number across the whole campus (normalizing `"PD1"`/`"P1"`/
+`"1"` variants to a plain period number first) — real per-class/wing timing
+variation gets smoothed over by this, so a class on an unusual bell schedule
+will show the campus's typical time for that period, not its own exact one.
+`campusPeriodSchedule` in the JSON carries that canonical schedule per
+campus. **LMS6 only has 8 periods in the source data, not 9** — not a bug,
+just what's actually there; every other campus has 9.
+
+**Code-keying tradeoff (carried over from the earlier rebuild):** 562 of the
 original 3,144 timetable rows had an assigned teacher but no EmployeeCode the
-extractor could confidently resolve — those periods are simply absent now
-rather than shown under a guessed name; teacher coverage per campus dropped
-accordingly (e.g. LMS4 went from 31 named teachers to 14 with a resolved
-code). Regenerate by re-running the extractor on a fresh export and
-re-running the conversion (campus `"LMS 2"` → `"LMS2"`, day names normalized
-to `Mon`..`Sat`, `BREAK` rows and rows with no assigned teacher OR no
-resolved `TeacherEmployeeCode` dropped).
+extractor could confidently resolve — those specific assignments are simply
+absent (shown as a free/Checking Period slot) rather than attributed under a
+guessed name; teacher coverage per campus dropped accordingly (e.g. LMS4 went
+from 31 named teachers to 14 with a resolved code). Regenerate by re-running
+the extractor on a fresh export and re-running the conversion (campus
+`"LMS 2"` → `"LMS2"`, period labels normalized to a plain number, day names
+normalized to `Mon`..`Sat`, `BREAK`/`LUNCH`/etc. rows excluded from the
+9-period grid entirely, majority-vote canonical timing per campus/period).
 
 ## Deploy
 
