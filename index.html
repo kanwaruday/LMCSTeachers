@@ -742,10 +742,9 @@ function renderCwHwGroups_() {
   if (!wrap) return;
   if (!cwhwGroupKeys_.length) { wrap.innerHTML = '<div class="dash-empty">No CW/HW log entries yet.</div>'; return; }
   wrap.innerHTML = cwhwGroupKeys_.map(function (key) {
-    const total = cwhwGroups_[key].length;
     const isOpen = cwhwExpandedKey_ === key;
     let html = '<div class="req-card" onclick="toggleCwHwGroup_(\'' + key.replace(/'/g, "\\'") + '\')">' +
-      '<div class="req-top"><span class="req-title">' + esc_(key) + '</span><span class="req-meta">' + total + ' logged ' + (isOpen ? '▲' : '▼') + '</span></div>';
+      '<div class="req-top"><span class="req-title">' + esc_(key) + '</span><span class="req-meta">' + (isOpen ? '▲' : '▼') + '</span></div>';
     if (isOpen) {
       const top7 = cwhwGroups_[key].slice(0, 7).slice().reverse();
       html += '<div class="req-detail">' + top7.map(cwhwEntryHtml_).join('') + '</div>';
