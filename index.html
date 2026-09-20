@@ -317,6 +317,21 @@ const PDR_BACKEND_URL = 'https://script.google.com/macros/s/AKfycbzpkFLy4KvTdSJf
 // role viewing this data today.
 const CWHW_PROXY_URL = 'https://script.google.com/macros/s/AKfycbyYk0uDnp-PHdUDdOh5-KfD2xK1ahYCQ_vt7SJigQMhSA3DSs5t5v_q4tnseoZKw3_L/exec';
 
+// This payload is large (~13MB, every campus's daily log, rebuilt on
+// every request as far as this repo can tell) -- a one-off failure
+// (Google returning an HTML error/redirect page instead of JSON, which
+// surfaces as a JSON.parse error here) is realistic under load, not
+// necessarily a real outage. One retry, short delay, before giving up
+// and showing an error.
+async function fetchCwHwWithRetry_() {
+  try {
+    return await fetch(CWHW_PROXY_URL, { cache: 'no-cache' }).then(function (r) { return r.json(); });
+  } catch (err) {
+    await new Promise(function (resolve) { setTimeout(resolve, 1500); });
+    return await fetch(CWHW_PROXY_URL, { cache: 'no-cache' }).then(function (r) { return r.json(); });
+  }
+}
+
 // Mirrors APR_TEACHER_CATEGORIES in apps-script/approvals.gs.
 const APR_CATEGORIES = ['Compensatory Leave', 'Other'];
 const APR_STATUS_PILLS = ['All', 'Pending', 'Info Requested', 'Approved', 'Rejected', 'Revoked'];
@@ -642,9 +657,9 @@ async function loadTags() {
   const roster = await loadMyCampusRoster_();
   let data;
   try {
-    data = await fetch(CWHW_PROXY_URL, { cache: 'no-cache' }).then(function (r) { return r.json(); });
+    data = await fetchCwHwWithRetry_();
   } catch (err) {
-    body.innerHTML = '<div class="notice">Couldn’t reach the CW/HW data source: ' + esc_(err.message) + '</div>';
+    body.innerHTML = '<div class="notice">Couldn’t reach the CW/HW data source (tried twice): ' + esc_(err.message) + '</div>';
     return;
   }
   if (!data || !Array.isArray(data.cwRecords)) {
