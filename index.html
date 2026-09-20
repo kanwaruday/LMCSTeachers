@@ -287,7 +287,7 @@ select:focus,input:focus,textarea:focus{outline:none;border-color:var(--red)}
     <!-- ══════════════════ MY CW/HW TAGS ══════════════════ -->
     <div class="tab-panel" id="panel-tags">
       <div class="section-lead">My CW/HW Patterns</div>
-      <div class="section-sub">How your last 30 days of classwork/homework logging breaks down by tag — this is your real data, not yet checked against any target (that needs the tag rubric Uday hasn't defined yet).</div>
+      <div class="section-sub">How your last 7 days of classwork/homework logging breaks down by tag — this is your real data, not yet checked against any target (that needs the tag rubric Uday hasn't defined yet).</div>
       <div id="tagsBody"><div class="loading-state"><div class="spinner"></div>Loading…</div></div>
     </div>
 
@@ -323,6 +323,21 @@ const CWHW_PROXY_URL = 'https://script.google.com/macros/s/AKfycbyYk0uDnp-PHdUDd
 // surfaces as a JSON.parse error here) is realistic under load, not
 // necessarily a real outage. One retry, short delay, before giving up
 // and showing an error.
+//
+// PERF (2026-09-20): cached in a module-level promise -- the raw data
+// is the same regardless of WHO's viewing (filtering by teacher/campus
+// happens after), so without this, switching Owner Test Mode targets
+// (or just re-opening this tab) re-downloaded the full 13MB every
+// single time. Only a SUCCESSFUL fetch is cached -- a failure clears
+// the cache so the next call retries fresh instead of replaying the
+// same failure for the rest of the page session.
+let cwhwDataPromise_ = null;
+function loadCwHwData_() {
+  if (cwhwDataPromise_) return cwhwDataPromise_;
+  cwhwDataPromise_ = fetchCwHwWithRetry_();
+  cwhwDataPromise_.catch(function () { cwhwDataPromise_ = null; });
+  return cwhwDataPromise_;
+}
 async function fetchCwHwWithRetry_() {
   try {
     return await fetch(CWHW_PROXY_URL, { cache: 'no-cache' }).then(function (r) { return r.json(); });
@@ -657,7 +672,7 @@ async function loadTags() {
   const roster = await loadMyCampusRoster_();
   let data;
   try {
-    data = await fetchCwHwWithRetry_();
+    data = await loadCwHwData_();
   } catch (err) {
     body.innerHTML = '<div class="notice">Couldn’t reach the CW/HW data source (tried twice): ' + esc_(err.message) + '</div>';
     return;
@@ -671,16 +686,15 @@ async function loadTags() {
     body.innerHTML = '<div class="dash-empty">No CW/HW log entries resolved to your Employee Code yet. If you have been logging and this looks wrong, the log’s typed name likely isn’t matching your roster entry — flag it so it can be fixed.</div>';
     return;
   }
-  const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  // Single 7-day window (2026-09-20, per Uday: "stick to just 1 option,
+  // that is 7 days" -- was 7/14/30 side by side, simplified back to one).
+  // Note this doesn't shrink the actual CW/HW proxy fetch above -- that
+  // returns the full multi-campus log regardless of display window --
+  // it only trims what gets computed/rendered afterward.
+  const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
   const recent = mine.filter(function (r) { return r.timeMs >= cutoff; });
 
-  // 7/14/30-day counts -- same `mine` array already fetched for tag
-  // frequency, just three more cutoffs, no extra data call.
-  const count7 = mine.filter(function (r) { return r.timeMs >= Date.now() - 7 * 86400000; }).length;
-  const count14 = mine.filter(function (r) { return r.timeMs >= Date.now() - 14 * 86400000; }).length;
-  const count30 = recent.length;
-
-  // Tag frequency across CW + HW tags in the last 30 days
+  // Tag frequency across CW + HW tags in the last 7 days
   const freq = {};
   recent.forEach(function (r) {
     splitTags_(r.cwTag).concat(splitTags_(r.hwTag)).forEach(function (t) {
@@ -705,24 +719,19 @@ async function loadTags() {
     if (!streakBroken) { if (hit) streak++; else streakBroken = true; }
   }
   renderStreak_(streak);
-  document.getElementById('homeTagSub').textContent = recent.length + ' log' + (recent.length === 1 ? '' : 's') + ' in the last 30 days';
+  document.getElementById('homeTagSub').textContent = recent.length + ' log' + (recent.length === 1 ? '' : 's') + ' in the last 7 days';
 
   const freqHtml = freqList.length ? freqList.map(function (f) {
     const cls = tagClass_(f.tag);
     const pct = Math.round((f.count / maxCount) * 100);
     return '<div class="tagfreq-row"><span class="tf-name"><span class="tag-chip ' + cls + '">' + esc_(f.tag) + '</span></span><div class="tagfreq-bar"><div style="width:' + pct + '%;background:' + TAG_COLOR_MAP[cls] + '"></div></div><span class="tf-count">' + f.count + '</span></div>';
-  }).join('') : '<div class="detail-empty">No tagged CW/HW entries in the last 30 days.</div>';
+  }).join('') : '<div class="detail-empty">No tagged CW/HW entries in the last 7 days.</div>';
 
   const dotsHtml = dayDots.map(function (hit) { return '<div class="day-dot' + (hit ? ' hit' : '') + '"></div>'; }).join('');
 
   body.innerHTML =
-    '<div class="stat-grid" style="grid-template-columns:1fr 1fr 1fr">' +
-      '<div class="stat-tile"><div class="num">' + count7 + '</div><div class="lbl">Last 7 Days</div></div>' +
-      '<div class="stat-tile blue"><div class="num">' + count14 + '</div><div class="lbl">Last 14 Days</div></div>' +
-      '<div class="stat-tile green"><div class="num">' + count30 + '</div><div class="lbl">Last 30 Days</div></div>' +
-    '</div>' +
-    '<div class="card"><p class="card-title">Last 7 Days</p><div class="day-strip">' + dotsHtml + '</div></div>' +
-    '<div class="card"><p class="card-title">Tag Frequency — Last 30 Days</p>' + freqHtml + '</div>';
+    '<div class="card"><p class="card-title">Last 7 Days<span style="font-weight:600;color:var(--gray);text-transform:none;letter-spacing:0">' + recent.length + ' log' + (recent.length === 1 ? '' : 's') + '</span></p><div class="day-strip">' + dotsHtml + '</div></div>' +
+    '<div class="card"><p class="card-title">Tag Frequency — Last 7 Days</p>' + freqHtml + '</div>';
 }
 
 // ── UPCOMING EVENTS — action=myupcomingevents, campus official
