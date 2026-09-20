@@ -20,9 +20,11 @@ separate backend or auth system.
 ## Status
 
 Built so far, all on the Home tab or its own bottom-nav tab: **My Requests**
-(leave & other approvals, self-scoped), **My Rank** (SS 50% + CW/HW
-Regularity 50%, ranked within your campus, explicitly labeled draft — see
-`LMCSManagement/apps-script/teacher-portal.gs`), **My Evaluations** (own
+(leave & other approvals, self-scoped), **My Score** (SS 50% + CW/HW
+Regularity 50%, your own numbers only — no peer ranking yet, deliberately
+deferred per Uday 2026-09-20 to validate the numbers first; explicitly
+labeled draft — see `LMCSManagement/apps-script/teacher-portal.gs`), **My
+Evaluations** (own
 Teacher SS scores, `action=myssstats`), **My CW/HW Patterns** (own tag
 frequency, reads the existing public CWHW proxy client-side), **Upcoming
 Events** (campus official Calendar, `action=myupcomingevents`), **Your

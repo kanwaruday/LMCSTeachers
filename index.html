@@ -199,7 +199,7 @@ select:focus,input:focus,textarea:focus{outline:none;border-color:var(--red)}
     <!-- ══════════════════ HOME ══════════════════ -->
     <div class="tab-panel active" id="panel-home">
       <div class="card" id="rankCard" style="background:linear-gradient(135deg,var(--red),#ff5b5b);color:#fff;border:none">
-        <p class="card-title" style="color:#fff">🏆 My Rank<span style="font-weight:600;text-transform:none;letter-spacing:0;opacity:.85;font-size:10.5px">Draft — not yet your official incentive</span></p>
+        <p class="card-title" style="color:#fff">📊 My Score<span style="font-weight:600;text-transform:none;letter-spacing:0;opacity:.85;font-size:10.5px">Draft — not yet your official incentive</span></p>
         <div id="rankBody"><div class="loading-state"><div class="spinner" style="border-color:rgba(255,255,255,.3);border-top-color:#fff"></div>Loading…</div></div>
       </div>
 
@@ -524,7 +524,7 @@ async function loadEvals() {
 
 // ── EmployeeCode resolution (2026-09-20, per Uday) — Timetable and
 // CW/HW Patterns both used to match by SESSION.name directly against
-// their data source, same fragility already fixed for My Rank/My
+// their data source, same fragility already fixed for My Score/My
 // Evaluations on the backend. Neither of those two sources is
 // reachable server-side without a new round trip, so instead: resolve
 // MY OWN code once via action=myemployeecode (AuthEmail-first,
@@ -780,14 +780,14 @@ function renderTimetableDay_() {
 async function loadRank_() {
   const body = document.getElementById('rankBody');
   const res = await pdrGet_('myrankscore', {});
-  if (!res.success) { body.innerHTML = '<div class="notice" style="background:rgba(255,255,255,.92)">Couldn’t load your rank: ' + esc_(res.error || 'unknown error') + '</div>'; pdrReportAuthFailureIfNeeded_(res); return; }
+  if (!res.success) { body.innerHTML = '<div class="notice" style="background:rgba(255,255,255,.92)">Couldn’t load your score: ' + esc_(res.error || 'unknown error') + '</div>'; pdrReportAuthFailureIfNeeded_(res); return; }
   if (!res.found) {
-    body.innerHTML = '<div style="font-size:12.5px;line-height:1.6;opacity:.95">Not enough data yet to compute your rank — this needs your name to resolve to an Employee Code, plus at least some SS or CW/HW activity. If you know you have both and this looks wrong, it may be a name-matching gap worth flagging.</div>';
+    body.innerHTML = '<div style="font-size:12.5px;line-height:1.6;opacity:.95">Not enough data yet to compute your score — this needs your name to resolve to an Employee Code, plus at least some SS or CW/HW activity. If you know you have both and this looks wrong, it may be a name-matching gap worth flagging.</div>';
     return;
   }
   body.innerHTML =
-    '<div style="font-size:38px;font-weight:800;line-height:1">#' + res.rank + ' <span style="font-size:16px;font-weight:600;opacity:.85">of ' + res.totalTeachers + '</span></div>' +
-    '<div style="font-size:12px;opacity:.9;margin:2px 0 14px">at ' + esc_(LMCS.campusLabel(res.campusId)) + ' — combined score ' + res.total + '/100</div>' +
+    '<div style="font-size:38px;font-weight:800;line-height:1">' + res.total + '<span style="font-size:16px;font-weight:600;opacity:.85">/100</span></div>' +
+    '<div style="font-size:12px;opacity:.9;margin:2px 0 14px">at ' + esc_(LMCS.campusLabel(res.campusId)) + ' — no ranking yet, just your own numbers</div>' +
     '<div style="display:flex;gap:10px">' +
       '<div style="flex:1;background:rgba(255,255,255,.18);border-radius:10px;padding:10px"><div style="font-size:20px;font-weight:800">' + res.ssScore + '</div><div style="font-size:10px;opacity:.9">SS Score (50%)</div></div>' +
       '<div style="flex:1;background:rgba(255,255,255,.18);border-radius:10px;padding:10px"><div style="font-size:20px;font-weight:800">' + res.regularityPct + '%</div><div style="font-size:10px;opacity:.9">Regularity, ' + res.windowDays + 'd (50%)</div></div>' +
