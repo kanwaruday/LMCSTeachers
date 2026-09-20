@@ -656,9 +656,10 @@ function renderTimetableDay_() {
   if (!myTimetable_) return;
   const rows = myTimetable_.periods.filter(function (p) { return p.day === ttSelectedDay; });
   if (!rows.length) { body.innerHTML = '<div class="dash-empty">No periods on ' + ttSelectedDay + '.</div>'; return; }
-  body.innerHTML = rows.map(function (p) {
-    return '<div class="quick-link" style="cursor:default"><div class="ico" style="font-size:13px;font-weight:800">' + esc_(p.start) + '</div><div class="txt"><b>' + esc_(p.subject || '—') + '</b><span>' + esc_(p.class) + '</span></div></div>';
+  const rowsHtml = rows.map(function (p) {
+    return '<div class="event-row"><span class="ico" style="font-weight:800;width:44px;flex-shrink:0">' + esc_(p.start) + '</span><div class="txt"><b>' + esc_(p.subject || '—') + '</b><span>' + esc_(p.class) + '</span></div></div>';
   }).join('');
+  body.innerHTML = '<div class="scroll-list">' + rowsHtml + '</div>';
 }
 
 // ── MY RANK — action=myrankscore, 50% SS + 50% CW/HW Regularity,
