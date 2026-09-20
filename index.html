@@ -349,18 +349,18 @@ async function pdrPost_(action, body) {
   }
 }
 // Owner Test Mode (2026-09-20) -- these 4 read-only actions are the
-// ones the backend actually honors viewAsEmail for (see main.gs's
+// ones the backend actually honors viewAsCode for (see main.gs's
 // pdrResolveViewAsCaller_); auto-appended here so call sites don't
 // each need to remember it. Deliberately excludes approvalslist/
 // approvaldetail/submitapproval/etc -- My Requests always shows the
 // SIGNED-IN Owner's own requests, never impersonated.
 const VIEW_AS_ELIGIBLE_ACTIONS = ['myssstats', 'myupcomingevents', 'myrankscore', 'myemployeecode'];
-let VIEW_AS_EMAIL = null;
+let VIEW_AS_CODE = null; // an EmployeeCode, e.g. "KEL/14/08/041" -- resolved against the full roster, not the Allowlist
 async function pdrGet_(action, params) {
   try {
     let url = PDR_BACKEND_URL + '?action=' + action + '&idToken=' + encodeURIComponent(SESSION.idToken);
     Object.keys(params || {}).forEach(function (k) { url += '&' + k + '=' + encodeURIComponent(params[k]); });
-    if (VIEW_AS_EMAIL && VIEW_AS_ELIGIBLE_ACTIONS.indexOf(action) !== -1) url += '&viewAsEmail=' + encodeURIComponent(VIEW_AS_EMAIL);
+    if (VIEW_AS_CODE && VIEW_AS_ELIGIBLE_ACTIONS.indexOf(action) !== -1) url += '&viewAsCode=' + encodeURIComponent(VIEW_AS_CODE);
     return await fetch(url).then(function (r) { return r.json(); });
   } catch (err) {
     return { success: false, error: String(err) };
@@ -537,7 +537,7 @@ async function loadEvals() {
 const EMPLOYEE_ROSTER_URL = 'https://script.google.com/macros/s/AKfycbyHiaZY_iWK2VTKKFJcCsBNnIbUndJYUSjnPkxvJ-dYavaihiul2xBJuJohPRsP9Spf/exec';
 let MY_EMPLOYEE_CODE = null;
 // The identity these features actually match against -- SESSION's own
-// campus normally, but under Owner Test Mode (see VIEW_AS_EMAIL below)
+// campus normally, but under Owner Test Mode (see VIEW_AS_CODE below)
 // this becomes the VIEWED teacher's real campus instead, since Owner's
 // own campusId ('ALL') isn't a valid per-campus lookup key. Set inside
 // ensureMyEmployeeCode_'s response, which is the one call that already
@@ -801,31 +801,29 @@ function renderStreak_(streak) {
   wrap.innerHTML = '<div class="streak-pill">🔥 ' + streak + '-day CW/HW logging streak</div>';
 }
 
-// ── Owner Test Mode — view the read-only display features AS a
-// specific teacher, without ever touching that teacher's credentials.
-// Same URL assets/auth.js itself calls for its live allowlist fetch --
-// duplicated here (that constant is private inside auth.js's own IIFE)
-// the same way PDR_BACKEND_URL is already duplicated across every
-// module in this portal family; keep in sync if it's ever redeployed.
-// Only ever fetched/shown to a caller whose OWN session already has
-// Owner -- the actual security boundary is server-side in main.gs's
+// ── Owner Test Mode — view the read-only display features AS ANY
+// employee in the Employee Master roster (~173 people, every campus),
+// not just someone already entered on this portal's own Allowlist --
+// searched by name or code via a native <input list> datalist (no
+// custom autocomplete JS needed), resolved to an EmployeeCode. Only
+// ever fetched/shown to a caller whose OWN session already has Owner
+// -- the actual security boundary is server-side in main.gs's
 // pdrResolveViewAsCaller_, this is just the UI for it. ──────────────
-const ALLOWLIST_API_URL = 'https://script.google.com/a/macros/lms.org.in/s/AKfycbx9Lfe0bI6RgjaF2aJcgqmfbgGHsg65Ed-N4RA2_VpBmSxCMj389D6PYtgJq9K1qDqcqA/exec';
-
-let viewAsTeacherListPromise_ = null;
-function loadViewAsTeacherList_() {
-  if (!viewAsTeacherListPromise_) {
-    viewAsTeacherListPromise_ = fetch(ALLOWLIST_API_URL + '?action=list', { cache: 'no-store' })
+let viewAsRosterPromise_ = null;
+function loadViewAsRoster_() {
+  if (!viewAsRosterPromise_) {
+    viewAsRosterPromise_ = fetch(EMPLOYEE_ROSTER_URL + '?action=employees', { cache: 'no-cache' })
       .then(function (r) { return r.json(); })
       .then(function (res) {
-        if (!res.success || !Array.isArray(res.entries)) return [];
-        return res.entries
-          .filter(function (e) { return String(e.role || '').split(',').map(function (r) { return r.trim(); }).indexOf('Teacher') !== -1; })
-          .sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); });
+        if (!res.success || !Array.isArray(res.employees)) return [];
+        return res.employees.slice().sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); });
       })
       .catch(function () { return []; });
   }
-  return viewAsTeacherListPromise_;
+  return viewAsRosterPromise_;
+}
+function viewAsOptionLabel_(emp) {
+  return (emp.name || '(no name)') + ' — ' + emp.employeeCode + ' — ' + LMCS.campusLabel('LMS' + String(emp.school || '').replace('LMS', '').trim());
 }
 
 // Single render for both states (plain picker vs. active banner) so
@@ -835,25 +833,36 @@ async function renderViewAsBar_() {
   if (!LMCS.hasRole(SESSION, 'Owner')) return;
   const bar = document.getElementById('viewAsBar');
   bar.style.display = 'block';
-  const teachers = await loadViewAsTeacherList_();
-  const optionsHtml = '<option value="">— viewing as yourself —</option>' + teachers.map(function (t) {
-    return '<option value="' + esc_(t.email) + '"' + (t.email === VIEW_AS_EMAIL ? ' selected' : '') + '>' + esc_(t.name || t.email) + ' — ' + esc_(LMCS.campusLabel(t.campusId)) + '</option>';
-  }).join('');
-  const activeLabel = VIEW_AS_EMAIL ? (teachers.filter(function (t) { return t.email === VIEW_AS_EMAIL; })[0] || {}).name || VIEW_AS_EMAIL : '';
+  const roster = await loadViewAsRoster_();
+  const active = VIEW_AS_CODE ? roster.filter(function (e) { return e.employeeCode === VIEW_AS_CODE; })[0] : null;
+  const datalistHtml = roster.map(function (e) { return '<option value="' + esc_(viewAsOptionLabel_(e)) + '">'; }).join('');
   bar.innerHTML =
-    (VIEW_AS_EMAIL ? '<div class="viewas-active">👁️ Viewing as: ' + esc_(activeLabel) + '<button type="button" onclick="exitViewAs_()">Exit</button></div>' : '') +
-    '<div class="viewas-picker" style="margin-top:' + (VIEW_AS_EMAIL ? '6px' : '0') + '"><label>Owner test mode</label><select id="viewAsSelect" onchange="onViewAsChange_()">' + optionsHtml + '</select></div>';
+    (VIEW_AS_CODE ? '<div class="viewas-active">👁️ Viewing as: ' + esc_(active ? active.name : VIEW_AS_CODE) + '<button type="button" onclick="exitViewAs_()">Exit</button></div>' : '') +
+    '<div class="viewas-picker" style="margin-top:' + (VIEW_AS_CODE ? '6px' : '0') + '">' +
+      '<label>Owner test mode</label>' +
+      '<input type="text" id="viewAsInput" list="viewAsDatalist" placeholder="Search any employee by name or code…" value="' + (active ? esc_(viewAsOptionLabel_(active)) : '') + '" oninput="onViewAsInput_()">' +
+      '<datalist id="viewAsDatalist">' + datalistHtml + '</datalist>' +
+    '</div>';
 }
 
-function onViewAsChange_() {
-  const email = document.getElementById('viewAsSelect').value;
-  VIEW_AS_EMAIL = email || null;
+// Fires on every keystroke (native datalist behavior) -- only acts
+// once the typed text EXACTLY matches one option's label (true whether
+// the user clicked a suggestion or finished typing it themselves), so
+// mid-typing keystrokes are harmless no-ops rather than firing a
+// reload per character.
+async function onViewAsInput_() {
+  const typed = document.getElementById('viewAsInput').value;
+  if (!typed) { if (VIEW_AS_CODE) exitViewAs_(); return; }
+  const roster = await loadViewAsRoster_();
+  const match = roster.filter(function (e) { return viewAsOptionLabel_(e) === typed; })[0];
+  if (!match) return;
+  VIEW_AS_CODE = match.employeeCode;
   resetViewAsCaches_();
   renderViewAsBar_();
   reloadForViewAs_();
 }
 function exitViewAs_() {
-  VIEW_AS_EMAIL = null;
+  VIEW_AS_CODE = null;
   resetViewAsCaches_();
   renderViewAsBar_();
   reloadForViewAs_();
