@@ -149,14 +149,20 @@ select:focus,input:focus,textarea:focus{outline:none;border-color:var(--red)}
 .tag-remedial{background:#fee2e2;color:var(--red)}
 .tag-checking{background:#f0fdf4;color:#16a34a}
 .tag-default{background:var(--lgray);color:var(--gray)}
-.tagfreq-row{display:flex;align-items:center;gap:10px;margin-bottom:9px}
-.tagfreq-row .tf-name{width:96px;flex-shrink:0;font-size:11.5px;font-weight:700}
-.tagfreq-bar{flex:1;height:10px;border-radius:999px;background:var(--lgray);overflow:hidden}
-.tagfreq-bar>div{height:100%;border-radius:999px}
-.tagfreq-row .tf-count{width:26px;text-align:right;font-size:11.5px;font-weight:800;color:var(--dark);flex-shrink:0}
 .day-strip{display:flex;gap:4px;margin-top:6px}
 .day-dot{flex:1;height:26px;border-radius:7px;background:var(--lgray)}
 .day-dot.hit{background:linear-gradient(135deg,var(--green),#22c55e)}
+
+/* My CW/HW Patterns — actual entry log (2026-09-20) */
+.cwhw-entry{padding:10px 0;border-bottom:1px solid var(--border)}
+.cwhw-entry:last-child{border-bottom:none}
+.cwhw-entry-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;font-size:12.5px;margin-bottom:5px}
+.cwhw-entry-head span{font-size:10.5px;color:var(--gray);flex-shrink:0;white-space:nowrap}
+.cwhw-block{font-size:12px;color:var(--dark);line-height:1.6;margin-bottom:3px}
+.cwhw-block:last-child{margin-bottom:0}
+.cwhw-label{display:inline-block;font-size:9.5px;font-weight:800;letter-spacing:.03em;border-radius:5px;padding:1px 6px;margin-right:6px;vertical-align:middle}
+.cwhw-label.cw{background:var(--purple-lt);color:var(--purple)}
+.cwhw-label.hw{background:var(--amber-lt);color:var(--amber)}
 </style>
 </head>
 <body>
@@ -227,7 +233,7 @@ select:focus,input:focus,textarea:focus{outline:none;border-color:var(--red)}
       </div>
       <div class="quick-link" onclick="goTab('tags')">
         <div class="ico">📚</div>
-        <div class="txt"><b>My CW/HW Patterns</b><span id="homeTagSub">What you've been teaching</span></div>
+        <div class="txt"><b>My CW/HW Patterns</b><span id="homeTagSub">Review what you've sent</span></div>
         <div class="chev">›</div>
       </div>
       <div class="notice" style="margin-top:4px">More on the way: period adjustments (still needs the actual covering process designed — nothing formal exists today), a forms hub, and target-based coaching on your CW/HW patterns (needs Uday to define expected ranges per tag first — patterns below are real data, not yet compared against a target).</div>
@@ -287,7 +293,7 @@ select:focus,input:focus,textarea:focus{outline:none;border-color:var(--red)}
     <!-- ══════════════════ MY CW/HW TAGS ══════════════════ -->
     <div class="tab-panel" id="panel-tags">
       <div class="section-lead">My CW/HW Patterns</div>
-      <div class="section-sub">How your last 7 days of classwork/homework logging breaks down by tag — this is your real data, not yet checked against any target (that needs the tag rubric Uday hasn't defined yet).</div>
+      <div class="section-sub">Review the CW/HW you've actually logged in the last 7 days — real entries, not yet checked against any target (that needs the tag rubric Uday hasn't defined yet).</div>
       <div id="tagsBody"><div class="loading-state"><div class="spinner"></div>Loading…</div></div>
     </div>
 
@@ -652,7 +658,6 @@ function recordMatchesMyCampus_(record) {
   const campusId = EFFECTIVE_CAMPUS_ID || SESSION.campusId;
   return LMS_IDX_TO_CAMPUS_ID[record.lmsIdx] === campusId;
 }
-const TAG_COLOR_MAP = { 'tag-cwa': '#15803d', 'tag-ott': '#1d4ed8', 'tag-teaching': '#6d28d9', 'tag-revise': '#b45309', 'tag-remedial': '#CE0000', 'tag-default': '#8A96A6' };
 function tagClass_(tag) {
   const t = tag.toLowerCase();
   for (let i = 0; i < TAG_CLASS_MAP.length; i++) if (t.indexOf(TAG_CLASS_MAP[i][0]) !== -1) return TAG_CLASS_MAP[i][1];
@@ -692,17 +697,7 @@ async function loadTags() {
   // returns the full multi-campus log regardless of display window --
   // it only trims what gets computed/rendered afterward.
   const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
-  const recent = mine.filter(function (r) { return r.timeMs >= cutoff; });
-
-  // Tag frequency across CW + HW tags in the last 7 days
-  const freq = {};
-  recent.forEach(function (r) {
-    splitTags_(r.cwTag).concat(splitTags_(r.hwTag)).forEach(function (t) {
-      const key = t; freq[key] = (freq[key] || 0) + 1;
-    });
-  });
-  const freqList = Object.keys(freq).map(function (k) { return { tag: k, count: freq[k] }; }).sort(function (a, b) { return b.count - a.count; });
-  const maxCount = freqList.length ? freqList[0].count : 1;
+  const recent = mine.filter(function (r) { return r.timeMs >= cutoff; }).sort(function (a, b) { return b.timeMs - a.timeMs; });
 
   // Real logging streak (7-day window) -- consecutive most-recent days
   // with at least one CW or HW entry, computed from actual timestamps,
@@ -721,17 +716,33 @@ async function loadTags() {
   renderStreak_(streak);
   document.getElementById('homeTagSub').textContent = recent.length + ' log' + (recent.length === 1 ? '' : 's') + ' in the last 7 days';
 
-  const freqHtml = freqList.length ? freqList.map(function (f) {
-    const cls = tagClass_(f.tag);
-    const pct = Math.round((f.count / maxCount) * 100);
-    return '<div class="tagfreq-row"><span class="tf-name"><span class="tag-chip ' + cls + '">' + esc_(f.tag) + '</span></span><div class="tagfreq-bar"><div style="width:' + pct + '%;background:' + TAG_COLOR_MAP[cls] + '"></div></div><span class="tf-count">' + f.count + '</span></div>';
-  }).join('') : '<div class="detail-empty">No tagged CW/HW entries in the last 7 days.</div>';
-
   const dotsHtml = dayDots.map(function (hit) { return '<div class="day-dot' + (hit ? ' hit' : '') + '"></div>'; }).join('');
+
+  // Actual entry log (2026-09-20, per Uday: replaced tag-frequency
+  // analysis with "what did I actually send" -- a teacher reviewing
+  // their own week wants the real CW/HW content, not an aggregate
+  // chart). Newest first (sorted above); each entry shows CW and, if
+  // present, HW, with their own tags inline.
+  const entriesHtml = recent.length ? recent.map(cwhwEntryHtml_).join('') : '<div class="dash-empty">No CW/HW log entries in the last 7 days.</div>';
 
   body.innerHTML =
     '<div class="card"><p class="card-title">Last 7 Days<span style="font-weight:600;color:var(--gray);text-transform:none;letter-spacing:0">' + recent.length + ' log' + (recent.length === 1 ? '' : 's') + '</span></p><div class="day-strip">' + dotsHtml + '</div></div>' +
-    '<div class="card"><p class="card-title">Tag Frequency — Last 7 Days</p>' + freqHtml + '</div>';
+    '<div class="card"><p class="card-title">What You Sent</p>' + entriesHtml + '</div>';
+}
+
+function cwhwEntryHtml_(r) {
+  const d = new Date(r.timeMs);
+  const when = formatDDMMYYYY_(r.timeMs) + ' · ' + d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+  const cwTags = splitTags_(r.cwTag).map(function (t) { return '<span class="tag-chip ' + tagClass_(t) + '">' + esc_(t) + '</span>'; }).join(' ');
+  const hwTags = splitTags_(r.hwTag).map(function (t) { return '<span class="tag-chip ' + tagClass_(t) + '">' + esc_(t) + '</span>'; }).join(' ');
+  const hwHtml = (r.hwDesc || r.hwChapter || hwTags)
+    ? '<div class="cwhw-block"><span class="cwhw-label hw">HW</span>' + esc_(r.hwChapter ? r.hwChapter + ' — ' : '') + esc_(r.hwDesc || '') + ' ' + hwTags + '</div>'
+    : '';
+  return '<div class="cwhw-entry">' +
+    '<div class="cwhw-entry-head"><b>' + esc_(r.classMapped || '—') + '</b> · ' + esc_(r.subject || '') + '<span>' + esc_(when) + '</span></div>' +
+    '<div class="cwhw-block"><span class="cwhw-label cw">CW</span>' + esc_(r.cwChapter ? r.cwChapter + ' — ' : '') + esc_(r.cwDesc || '') + ' ' + cwTags + '</div>' +
+    hwHtml +
+    '</div>';
 }
 
 // ── UPCOMING EVENTS — action=myupcomingevents, campus official
