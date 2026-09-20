@@ -21,6 +21,17 @@ body{font-family:'Segoe UI',system-ui,Arial,sans-serif;background:var(--lgray);c
 .hdr-signout:hover{background:rgba(255,255,255,.28)}
 .streak-pill{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.18);border-radius:999px;padding:5px 12px;font-size:11.5px;font-weight:700;margin-top:10px}
 
+/* Owner Test Mode -- picker (always visible to Owner) + a loud,
+   unmissable banner once a target is actually selected, so there's
+   never ambiguity about whose data is on screen. */
+#viewAsBar{margin-top:10px}
+.viewas-picker{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.viewas-picker select{flex:1;min-width:160px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:8px;padding:7px 9px;font-size:12px;font-family:inherit}
+.viewas-picker select option{color:#000}
+.viewas-picker label{font-size:10.5px;font-weight:700;opacity:.85;text-transform:uppercase;letter-spacing:.03em;flex-shrink:0}
+.viewas-active{background:#1a1a1a;color:#ffd54a;border-radius:10px;padding:8px 12px;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.viewas-active button{border:1px solid rgba(255,213,74,.5);background:none;color:#ffd54a;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0}
+
 #appBody{max-width:520px;margin:0 auto;width:100%;padding:14px 14px calc(84px + env(safe-area-inset-bottom,0px))}
 .denied{text-align:center;padding:60px 20px;color:var(--gray)}
 .denied .icon{font-size:38px;margin-bottom:10px}
@@ -178,6 +189,7 @@ select:focus,input:focus,textarea:focus{outline:none;border-color:var(--red)}
     <button type="button" class="hdr-signout" onclick="LMCS.signOut()">Sign out</button>
   </div>
   <div id="streakPillWrap"></div>
+  <div id="viewAsBar" style="display:none"></div>
 </div>
 
 <div id="appBody">
@@ -336,10 +348,19 @@ async function pdrPost_(action, body) {
     return { success: false, error: String(err) };
   }
 }
+// Owner Test Mode (2026-09-20) -- these 4 read-only actions are the
+// ones the backend actually honors viewAsEmail for (see main.gs's
+// pdrResolveViewAsCaller_); auto-appended here so call sites don't
+// each need to remember it. Deliberately excludes approvalslist/
+// approvaldetail/submitapproval/etc -- My Requests always shows the
+// SIGNED-IN Owner's own requests, never impersonated.
+const VIEW_AS_ELIGIBLE_ACTIONS = ['myssstats', 'myupcomingevents', 'myrankscore', 'myemployeecode'];
+let VIEW_AS_EMAIL = null;
 async function pdrGet_(action, params) {
   try {
     let url = PDR_BACKEND_URL + '?action=' + action + '&idToken=' + encodeURIComponent(SESSION.idToken);
     Object.keys(params || {}).forEach(function (k) { url += '&' + k + '=' + encodeURIComponent(params[k]); });
+    if (VIEW_AS_EMAIL && VIEW_AS_ELIGIBLE_ACTIONS.indexOf(action) !== -1) url += '&viewAsEmail=' + encodeURIComponent(VIEW_AS_EMAIL);
     return await fetch(url).then(function (r) { return r.json(); });
   } catch (err) {
     return { success: false, error: String(err) };
@@ -515,15 +536,32 @@ async function loadEvals() {
 // runs first does the one fetch, and the other reuses it. ──────────
 const EMPLOYEE_ROSTER_URL = 'https://script.google.com/macros/s/AKfycbyHiaZY_iWK2VTKKFJcCsBNnIbUndJYUSjnPkxvJ-dYavaihiul2xBJuJohPRsP9Spf/exec';
 let MY_EMPLOYEE_CODE = null;
+// The identity these features actually match against -- SESSION's own
+// campus normally, but under Owner Test Mode (see VIEW_AS_EMAIL below)
+// this becomes the VIEWED teacher's real campus instead, since Owner's
+// own campusId ('ALL') isn't a valid per-campus lookup key. Set inside
+// ensureMyEmployeeCode_'s response, which is the one call that already
+// resolves the effective identity server-side.
+let EFFECTIVE_CAMPUS_ID = null;
 let myEmployeeCodePromise_ = null;
 function ensureMyEmployeeCode_() {
   if (!myEmployeeCodePromise_) {
     myEmployeeCodePromise_ = pdrGet_('myemployeecode', {}).then(function (res) {
-      if (res.success && res.found) MY_EMPLOYEE_CODE = res.employeeCode;
+      if (res.success) { MY_EMPLOYEE_CODE = res.found ? res.employeeCode : null; EFFECTIVE_CAMPUS_ID = res.campusId || SESSION.campusId; }
       return res;
     });
   }
   return myEmployeeCodePromise_;
+}
+// Owner Test Mode: forces every cached identity/roster resolution to
+// re-run against the newly selected (or cleared) view-as target --
+// without this, switching targets would keep showing the FIRST
+// person's cached code/roster/campus forever.
+function resetViewAsCaches_() {
+  myEmployeeCodePromise_ = null;
+  myCampusRosterPromise_ = null;
+  MY_EMPLOYEE_CODE = null;
+  EFFECTIVE_CAMPUS_ID = null;
 }
 // Mirrors apps-script/teacher-portal.gs's tpNormalizeName_ -- keep in
 // sync if that changes.
@@ -539,7 +577,8 @@ function loadMyCampusRoster_() {
       .then(function (r) { return r.json(); })
       .then(function (res) {
         if (!res.success || !Array.isArray(res.employees)) return [];
-        const wantSchool = 'LMS ' + SESSION.campusId.replace('LMS', '');
+        const campusId = EFFECTIVE_CAMPUS_ID || SESSION.campusId;
+        const wantSchool = 'LMS ' + campusId.replace('LMS', '');
         return res.employees.filter(function (e) { return e.school === wantSchool; })
           .map(function (e) { return { employeeCode: e.employeeCode, nameNorm: normalizeNameForMatch_(e.name) }; });
       })
@@ -572,9 +611,10 @@ const TAG_CLASS_MAP = [
 const TT_LMS_LAST_WORD = { LMS1: 'kullu', LMS2: 'kelheli', LMS3: 'dunkhra', LMS4: 'nerchowk', LMS5: 'sayoli', LMS6: 'jogindernagar' };
 const TT_LMS_ALIASES = { LMS6: ['guru international'] };
 function recordMatchesMyCampus_(schoolName) {
+  const campusId = EFFECTIVE_CAMPUS_ID || SESSION.campusId;
   const school = String(schoolName || '').toLowerCase();
-  if (school.indexOf(TT_LMS_LAST_WORD[SESSION.campusId] || ' ') !== -1) return true;
-  return (TT_LMS_ALIASES[SESSION.campusId] || []).some(function (a) { return school.indexOf(a) !== -1; });
+  if (school.indexOf(TT_LMS_LAST_WORD[campusId] || ' ') !== -1) return true;
+  return (TT_LMS_ALIASES[campusId] || []).some(function (a) { return school.indexOf(a) !== -1; });
 }
 const TAG_COLOR_MAP = { 'tag-cwa': '#15803d', 'tag-ott': '#1d4ed8', 'tag-teaching': '#6d28d9', 'tag-revise': '#b45309', 'tag-remedial': '#CE0000', 'tag-default': '#8A96A6' };
 function tagClass_(tag) {
@@ -702,9 +742,10 @@ async function loadTimetable_() {
     body.innerHTML = '<div class="notice">Couldn’t load timetable data: ' + esc_(err.message) + '</div>';
     return;
   }
-  const campusData = data.campuses[SESSION.campusId];
+  const campusId = EFFECTIVE_CAMPUS_ID || SESSION.campusId;
+  const campusData = data.campuses[campusId];
   if (!campusData) {
-    body.innerHTML = '<div class="dash-empty">Timetable data for ' + esc_(LMCS.campusLabel(SESSION.campusId)) + ' isn’t available yet — it hasn’t been digitized for this campus.</div>';
+    body.innerHTML = '<div class="dash-empty">Timetable data for ' + esc_(LMCS.campusLabel(campusId)) + ' isn’t available yet — it hasn’t been digitized for this campus.</div>';
     document.getElementById('ttDayPicker').innerHTML = '';
     return;
   }
@@ -760,6 +801,75 @@ function renderStreak_(streak) {
   wrap.innerHTML = '<div class="streak-pill">🔥 ' + streak + '-day CW/HW logging streak</div>';
 }
 
+// ── Owner Test Mode — view the read-only display features AS a
+// specific teacher, without ever touching that teacher's credentials.
+// Same URL assets/auth.js itself calls for its live allowlist fetch --
+// duplicated here (that constant is private inside auth.js's own IIFE)
+// the same way PDR_BACKEND_URL is already duplicated across every
+// module in this portal family; keep in sync if it's ever redeployed.
+// Only ever fetched/shown to a caller whose OWN session already has
+// Owner -- the actual security boundary is server-side in main.gs's
+// pdrResolveViewAsCaller_, this is just the UI for it. ──────────────
+const ALLOWLIST_API_URL = 'https://script.google.com/a/macros/lms.org.in/s/AKfycbx9Lfe0bI6RgjaF2aJcgqmfbgGHsg65Ed-N4RA2_VpBmSxCMj389D6PYtgJq9K1qDqcqA/exec';
+
+let viewAsTeacherListPromise_ = null;
+function loadViewAsTeacherList_() {
+  if (!viewAsTeacherListPromise_) {
+    viewAsTeacherListPromise_ = fetch(ALLOWLIST_API_URL + '?action=list', { cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (!res.success || !Array.isArray(res.entries)) return [];
+        return res.entries
+          .filter(function (e) { return String(e.role || '').split(',').map(function (r) { return r.trim(); }).indexOf('Teacher') !== -1; })
+          .sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); });
+      })
+      .catch(function () { return []; });
+  }
+  return viewAsTeacherListPromise_;
+}
+
+// Single render for both states (plain picker vs. active banner) so
+// there's one source of truth for the bar's DOM instead of two
+// functions fighting over the same container.
+async function renderViewAsBar_() {
+  if (!LMCS.hasRole(SESSION, 'Owner')) return;
+  const bar = document.getElementById('viewAsBar');
+  bar.style.display = 'block';
+  const teachers = await loadViewAsTeacherList_();
+  const optionsHtml = '<option value="">— viewing as yourself —</option>' + teachers.map(function (t) {
+    return '<option value="' + esc_(t.email) + '"' + (t.email === VIEW_AS_EMAIL ? ' selected' : '') + '>' + esc_(t.name || t.email) + ' — ' + esc_(LMCS.campusLabel(t.campusId)) + '</option>';
+  }).join('');
+  const activeLabel = VIEW_AS_EMAIL ? (teachers.filter(function (t) { return t.email === VIEW_AS_EMAIL; })[0] || {}).name || VIEW_AS_EMAIL : '';
+  bar.innerHTML =
+    (VIEW_AS_EMAIL ? '<div class="viewas-active">👁️ Viewing as: ' + esc_(activeLabel) + '<button type="button" onclick="exitViewAs_()">Exit</button></div>' : '') +
+    '<div class="viewas-picker" style="margin-top:' + (VIEW_AS_EMAIL ? '6px' : '0') + '"><label>Owner test mode</label><select id="viewAsSelect" onchange="onViewAsChange_()">' + optionsHtml + '</select></div>';
+}
+
+function onViewAsChange_() {
+  const email = document.getElementById('viewAsSelect').value;
+  VIEW_AS_EMAIL = email || null;
+  resetViewAsCaches_();
+  renderViewAsBar_();
+  reloadForViewAs_();
+}
+function exitViewAs_() {
+  VIEW_AS_EMAIL = null;
+  resetViewAsCaches_();
+  renderViewAsBar_();
+  reloadForViewAs_();
+}
+// Re-runs every read-only display feature after the view-as target
+// changes. Deliberately excludes loadApprovals -- My Requests always
+// shows the signed-in Owner's OWN requests, never impersonated (see
+// pdrResolveViewAsCaller_'s comment for why).
+function reloadForViewAs_() {
+  loadRank_();
+  loadEvals();
+  tagsLoaded = false; loadTags();
+  loadEvents_();
+  loadTimetable_();
+}
+
 function showDenied_(message) {
   document.getElementById('deniedBox').style.display = 'block';
   document.getElementById('deniedBox').innerHTML = '<div class="denied"><div class="icon">🔒</div><h3>Not available</h3><p>' + esc_(message) + '</p></div>';
@@ -767,14 +877,20 @@ function showDenied_(message) {
 
 function init() {
   SESSION = LMCS.getSession();
-  if (!SESSION || !LMCS.hasRole(SESSION, 'Teacher')) {
-    showDenied_('The Teacher Portal is for Teacher accounts. Principals/Coordinators/Owner already have the full Approvals workflow on the Principal’s Daily Reporting page.');
+  // Owner admitted even without Teacher on their own row (2026-09-20)
+  // -- Owner Test Mode is the point of entry for them, not their own
+  // personal data. An Owner who ALSO has Teacher (e.g. "Owner,Teacher")
+  // still sees their own real data by default until they pick someone
+  // to view as.
+  if (!SESSION || (!LMCS.hasRole(SESSION, 'Teacher') && !LMCS.hasRole(SESSION, 'Owner'))) {
+    showDenied_('The Teacher Portal is for Teacher accounts. Principals/Coordinators already have the full Approvals workflow on the Principal’s Daily Reporting page.');
     return;
   }
   document.getElementById('hdrGreeting').textContent = 'Hey, ' + (SESSION.name ? SESSION.name.split(' ')[0] : 'there') + ' 👋';
   document.getElementById('aprCategory').innerHTML = APR_CATEGORIES.map(function (c) { return '<option value="' + c + '">' + c + '</option>'; }).join('');
   document.getElementById('appArea').style.display = '';
   document.getElementById('bottomNav').style.display = 'flex';
+  renderViewAsBar_();
   loadApprovals();
   loadEvals();
   loadTags();
