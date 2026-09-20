@@ -50,6 +50,17 @@ body{font-family:'Segoe UI',system-ui,Arial,sans-serif;background:var(--lgray);c
 .quick-link .txt span{font-size:11px;color:var(--gray)}
 .quick-link .chev{color:#C6CDD6;font-size:16px}
 
+/* ── Compact scrollable list (Upcoming Events) — lighter than
+   .quick-link, which is sized for big tappable nav rows, not a dense
+   info list. ── */
+.scroll-list{max-height:220px;overflow-y:auto;margin:0 -4px;padding:0 4px}
+.event-row{display:flex;align-items:center;gap:9px;padding:7px 4px;border-bottom:1px solid var(--border)}
+.event-row:last-child{border-bottom:none}
+.event-row .ico{font-size:13px;flex-shrink:0}
+.event-row .txt{flex:1;min-width:0}
+.event-row .txt b{font-size:12px;display:block;line-height:1.3}
+.event-row .txt span{font-size:10.5px;color:var(--gray)}
+
 /* ── Bottom app nav ── */
 .bottom-nav{position:fixed;left:0;right:0;bottom:0;z-index:50;background:var(--white);border-top:1px solid var(--border);display:flex;padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px));box-shadow:0 -4px 16px rgba(20,20,30,.06)}
 .nav-btn{flex:1;background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 2px;border-radius:12px;cursor:pointer;color:var(--gray)}
@@ -592,12 +603,13 @@ async function loadEvents_() {
   if (!res.events.length) { body.innerHTML = '<div class="dash-empty">Nothing on the school calendar in the next 14 days.</div>'; return; }
   const todayStr = new Date().toDateString();
   const tomorrowStr = new Date(Date.now() + 86400000).toDateString();
-  body.innerHTML = res.events.map(function (e) {
+  const rowsHtml = res.events.map(function (e) {
     const d = new Date(e.start);
     let when = d.toDateString() === todayStr ? 'Today' : (d.toDateString() === tomorrowStr ? 'Tomorrow' : formatDDMMYYYY_(e.start));
     if (!e.allDay) when += ' · ' + d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-    return '<div class="quick-link" style="cursor:default"><div class="ico" style="font-size:16px">📌</div><div class="txt"><b>' + esc_(e.title) + '</b><span>' + esc_(when) + '</span></div></div>';
+    return '<div class="event-row"><span class="ico">📌</span><div class="txt"><b>' + esc_(e.title) + '</b><span>' + esc_(when) + '</span></div></div>';
   }).join('');
+  body.innerHTML = '<div class="scroll-list">' + rowsHtml + '</div>';
 }
 
 // ── YOUR TIMETABLE — static data/timetable.json (see this repo's
