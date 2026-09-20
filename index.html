@@ -701,35 +701,62 @@ async function loadTags() {
 
   const dotsHtml = dayDots.map(function (hit) { return '<div class="day-dot' + (hit ? ' hit' : '') + '"></div>'; }).join('');
 
-  // Class-Subject blocks (2026-09-21, per Uday) -- grouped from the
+  // Class-Subject groups (2026-09-21, per Uday) -- grouped from the
   // FULL `mine` array, not the 7-day-windowed `recent`: "past 7
   // entries" is an entry-count cap per class-subject, not a day
   // window, so a class taught only twice a week still shows a real
-  // 7-entry history instead of getting clipped by a day cutoff. Each
-  // block's own entries are oldest -> newest (reversed after taking
-  // the most recent 7) so reading one block top-to-bottom tells the
-  // actual story of how that class progressed, not a "most recent
-  // first" feed. Blocks themselves are ordered by whichever
-  // class-subject was most recently active. No tags shown -- removed
-  // per Uday, raw tag text isn't meaningful without the rubric that
-  // would define what a "good" pattern looks like.
-  const groups = {};
+  // 7-entry history instead of getting clipped by a day cutoff. Cached
+  // module-level (cwhwGroups_/cwhwGroupKeys_) so clicking one to
+  // expand -- while every other combination stays visible as its own
+  // clickable row, per Uday -- just re-renders from what's already
+  // here, no re-fetch. No tags shown -- removed per Uday, raw tag text
+  // isn't meaningful without the rubric that would define what a
+  // "good" pattern looks like.
+  cwhwGroups_ = {};
   mine.forEach(function (r) {
     const key = (r.classMapped || '—') + ' · ' + (r.subject || '—');
-    (groups[key] = groups[key] || []).push(r);
+    (cwhwGroups_[key] = cwhwGroups_[key] || []).push(r);
   });
-  const groupKeys = Object.keys(groups);
-  groupKeys.forEach(function (k) { groups[k].sort(function (a, b) { return b.timeMs - a.timeMs; }); });
-  groupKeys.sort(function (a, b) { return groups[b][0].timeMs - groups[a][0].timeMs; });
-
-  const blocksHtml = groupKeys.map(function (key) {
-    const top7 = groups[key].slice(0, 7).slice().reverse();
-    return '<div class="card"><p class="card-title">' + esc_(key) + '<span style="font-weight:600;color:var(--gray);text-transform:none;letter-spacing:0">' + groups[key].length + ' total logged</span></p>' + top7.map(cwhwEntryHtml_).join('') + '</div>';
-  }).join('');
+  cwhwGroupKeys_ = Object.keys(cwhwGroups_);
+  cwhwGroupKeys_.forEach(function (k) { cwhwGroups_[k].sort(function (a, b) { return b.timeMs - a.timeMs; }); });
+  cwhwGroupKeys_.sort(function (a, b) { return cwhwGroups_[b][0].timeMs - cwhwGroups_[a][0].timeMs; });
+  cwhwExpandedKey_ = null; // collapse everything on a fresh load (view-as switch, refresh, etc.)
 
   body.innerHTML =
     '<div class="card"><p class="card-title">Last 7 Days<span style="font-weight:600;color:var(--gray);text-transform:none;letter-spacing:0">' + recent.length + ' log' + (recent.length === 1 ? '' : 's') + '</span></p><div class="day-strip">' + dotsHtml + '</div></div>' +
-    (blocksHtml || '<div class="dash-empty">No CW/HW log entries yet.</div>');
+    '<div id="cwhwGroupsBody"></div>';
+  renderCwHwGroups_();
+}
+
+// Accordion state (2026-09-21) -- every class-subject combination
+// always shows as its own row (per Uday: "still being able to see all
+// of the tabs"); clicking one expands its own last-7-entries detail in
+// place, click again to collapse. Only one open at a time, matching
+// the same pattern My Requests already uses (toggleApprovalRow).
+let cwhwGroups_ = {};
+let cwhwGroupKeys_ = [];
+let cwhwExpandedKey_ = null;
+
+function renderCwHwGroups_() {
+  const wrap = document.getElementById('cwhwGroupsBody');
+  if (!wrap) return;
+  if (!cwhwGroupKeys_.length) { wrap.innerHTML = '<div class="dash-empty">No CW/HW log entries yet.</div>'; return; }
+  wrap.innerHTML = cwhwGroupKeys_.map(function (key) {
+    const total = cwhwGroups_[key].length;
+    const isOpen = cwhwExpandedKey_ === key;
+    let html = '<div class="req-card" onclick="toggleCwHwGroup_(\'' + key.replace(/'/g, "\\'") + '\')">' +
+      '<div class="req-top"><span class="req-title">' + esc_(key) + '</span><span class="req-meta">' + total + ' logged ' + (isOpen ? '▲' : '▼') + '</span></div>';
+    if (isOpen) {
+      const top7 = cwhwGroups_[key].slice(0, 7).slice().reverse();
+      html += '<div class="req-detail">' + top7.map(cwhwEntryHtml_).join('') + '</div>';
+    }
+    return html + '</div>';
+  }).join('');
+}
+
+function toggleCwHwGroup_(key) {
+  cwhwExpandedKey_ = (cwhwExpandedKey_ === key) ? null : key;
+  renderCwHwGroups_();
 }
 
 function cwhwEntryHtml_(r) {
