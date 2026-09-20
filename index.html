@@ -654,6 +654,12 @@ async function loadTags() {
   const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
   const recent = mine.filter(function (r) { return r.timeMs >= cutoff; });
 
+  // 7/14/30-day counts -- same `mine` array already fetched for tag
+  // frequency, just three more cutoffs, no extra data call.
+  const count7 = mine.filter(function (r) { return r.timeMs >= Date.now() - 7 * 86400000; }).length;
+  const count14 = mine.filter(function (r) { return r.timeMs >= Date.now() - 14 * 86400000; }).length;
+  const count30 = recent.length;
+
   // Tag frequency across CW + HW tags in the last 30 days
   const freq = {};
   recent.forEach(function (r) {
@@ -690,6 +696,11 @@ async function loadTags() {
   const dotsHtml = dayDots.map(function (hit) { return '<div class="day-dot' + (hit ? ' hit' : '') + '"></div>'; }).join('');
 
   body.innerHTML =
+    '<div class="stat-grid" style="grid-template-columns:1fr 1fr 1fr">' +
+      '<div class="stat-tile"><div class="num">' + count7 + '</div><div class="lbl">Last 7 Days</div></div>' +
+      '<div class="stat-tile blue"><div class="num">' + count14 + '</div><div class="lbl">Last 14 Days</div></div>' +
+      '<div class="stat-tile green"><div class="num">' + count30 + '</div><div class="lbl">Last 30 Days</div></div>' +
+    '</div>' +
     '<div class="card"><p class="card-title">Last 7 Days</p><div class="day-strip">' + dotsHtml + '</div></div>' +
     '<div class="card"><p class="card-title">Tag Frequency — Last 30 Days</p>' + freqHtml + '</div>';
 }
