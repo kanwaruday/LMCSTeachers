@@ -140,24 +140,18 @@ select:focus,input:focus,textarea:focus{outline:none;border-color:var(--red)}
 .rubric-bar{height:8px;border-radius:999px;background:var(--lgray);overflow:hidden}
 .rubric-bar>div{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--red),#ff6b6b)}
 
-/* ── Tag chips (matches curriculum-progress/daily-progress.html's palette) ── */
+/* ── Tag chip (Timetable's "Checking Period" is the only user now --
+   the CW/HW tag palette was removed 2026-09-21 along with tag display) ── */
 .tag-chip{font-size:10px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap;display:inline-block}
-.tag-cwa{background:var(--green-lt);color:var(--green)}
-.tag-ott{background:var(--blue-lt);color:var(--blue)}
-.tag-teaching{background:var(--purple-lt);color:var(--purple)}
-.tag-revise{background:var(--amber-lt);color:var(--amber)}
-.tag-remedial{background:#fee2e2;color:var(--red)}
 .tag-checking{background:#f0fdf4;color:#16a34a}
-.tag-default{background:var(--lgray);color:var(--gray)}
 .day-strip{display:flex;gap:4px;margin-top:6px}
 .day-dot{flex:1;height:26px;border-radius:7px;background:var(--lgray)}
 .day-dot.hit{background:linear-gradient(135deg,var(--green),#22c55e)}
 
-/* My CW/HW Patterns — actual entry log (2026-09-20) */
+/* My CW/HW Patterns — class-subject blocks of actual entries (2026-09-21) */
 .cwhw-entry{padding:10px 0;border-bottom:1px solid var(--border)}
 .cwhw-entry:last-child{border-bottom:none}
-.cwhw-entry-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;font-size:12.5px;margin-bottom:5px}
-.cwhw-entry-head span{font-size:10.5px;color:var(--gray);flex-shrink:0;white-space:nowrap}
+.cwhw-entry-head{font-size:10.5px;font-weight:700;color:var(--gray);margin-bottom:5px}
 .cwhw-block{font-size:12px;color:var(--dark);line-height:1.6;margin-bottom:3px}
 .cwhw-block:last-child{margin-bottom:0}
 .cwhw-label{display:inline-block;font-size:9.5px;font-weight:800;letter-spacing:.03em;border-radius:5px;padding:1px 6px;margin-right:6px;vertical-align:middle}
@@ -636,10 +630,6 @@ function resolveCodeFromName_(rawName, roster) {
 // the roster and comparing EmployeeCode to MY_EMPLOYEE_CODE, not by
 // comparing raw name strings directly. ─────────────────────────────
 let tagsLoaded = false;
-const TAG_CLASS_MAP = [
-  ['cwa', 'tag-cwa'], ['ott', 'tag-ott'], ['teach', 'tag-teaching'],
-  ['revis', 'tag-revise'], ['remedial', 'tag-remedial'],
-];
 // FIXED 2026-09-20: cwRecords carries NO `school` field at all --
 // confirmed by fetching the live proxy directly (26,317 real records
 // inspected, `school` key present on zero of them). The ORIGINAL
@@ -658,13 +648,6 @@ function recordMatchesMyCampus_(record) {
   const campusId = EFFECTIVE_CAMPUS_ID || SESSION.campusId;
   return LMS_IDX_TO_CAMPUS_ID[record.lmsIdx] === campusId;
 }
-function tagClass_(tag) {
-  const t = tag.toLowerCase();
-  for (let i = 0; i < TAG_CLASS_MAP.length; i++) if (t.indexOf(TAG_CLASS_MAP[i][0]) !== -1) return TAG_CLASS_MAP[i][1];
-  return 'tag-default';
-}
-function splitTags_(tagStr) { return String(tagStr || '').split(',').map(function (t) { return t.trim(); }).filter(Boolean); }
-
 async function loadTags() {
   const body = document.getElementById('tagsBody');
   tagsLoaded = true;
@@ -718,29 +701,45 @@ async function loadTags() {
 
   const dotsHtml = dayDots.map(function (hit) { return '<div class="day-dot' + (hit ? ' hit' : '') + '"></div>'; }).join('');
 
-  // Actual entry log (2026-09-20, per Uday: replaced tag-frequency
-  // analysis with "what did I actually send" -- a teacher reviewing
-  // their own week wants the real CW/HW content, not an aggregate
-  // chart). Newest first (sorted above); each entry shows CW and, if
-  // present, HW, with their own tags inline.
-  const entriesHtml = recent.length ? recent.map(cwhwEntryHtml_).join('') : '<div class="dash-empty">No CW/HW log entries in the last 7 days.</div>';
+  // Class-Subject blocks (2026-09-21, per Uday) -- grouped from the
+  // FULL `mine` array, not the 7-day-windowed `recent`: "past 7
+  // entries" is an entry-count cap per class-subject, not a day
+  // window, so a class taught only twice a week still shows a real
+  // 7-entry history instead of getting clipped by a day cutoff. Each
+  // block's own entries are oldest -> newest (reversed after taking
+  // the most recent 7) so reading one block top-to-bottom tells the
+  // actual story of how that class progressed, not a "most recent
+  // first" feed. Blocks themselves are ordered by whichever
+  // class-subject was most recently active. No tags shown -- removed
+  // per Uday, raw tag text isn't meaningful without the rubric that
+  // would define what a "good" pattern looks like.
+  const groups = {};
+  mine.forEach(function (r) {
+    const key = (r.classMapped || '—') + ' · ' + (r.subject || '—');
+    (groups[key] = groups[key] || []).push(r);
+  });
+  const groupKeys = Object.keys(groups);
+  groupKeys.forEach(function (k) { groups[k].sort(function (a, b) { return b.timeMs - a.timeMs; }); });
+  groupKeys.sort(function (a, b) { return groups[b][0].timeMs - groups[a][0].timeMs; });
+
+  const blocksHtml = groupKeys.map(function (key) {
+    const top7 = groups[key].slice(0, 7).slice().reverse();
+    return '<div class="card"><p class="card-title">' + esc_(key) + '<span style="font-weight:600;color:var(--gray);text-transform:none;letter-spacing:0">' + groups[key].length + ' total logged</span></p>' + top7.map(cwhwEntryHtml_).join('') + '</div>';
+  }).join('');
 
   body.innerHTML =
     '<div class="card"><p class="card-title">Last 7 Days<span style="font-weight:600;color:var(--gray);text-transform:none;letter-spacing:0">' + recent.length + ' log' + (recent.length === 1 ? '' : 's') + '</span></p><div class="day-strip">' + dotsHtml + '</div></div>' +
-    '<div class="card"><p class="card-title">What You Sent</p>' + entriesHtml + '</div>';
+    (blocksHtml || '<div class="dash-empty">No CW/HW log entries yet.</div>');
 }
 
 function cwhwEntryHtml_(r) {
-  const d = new Date(r.timeMs);
-  const when = formatDDMMYYYY_(r.timeMs) + ' · ' + d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-  const cwTags = splitTags_(r.cwTag).map(function (t) { return '<span class="tag-chip ' + tagClass_(t) + '">' + esc_(t) + '</span>'; }).join(' ');
-  const hwTags = splitTags_(r.hwTag).map(function (t) { return '<span class="tag-chip ' + tagClass_(t) + '">' + esc_(t) + '</span>'; }).join(' ');
-  const hwHtml = (r.hwDesc || r.hwChapter || hwTags)
-    ? '<div class="cwhw-block"><span class="cwhw-label hw">HW</span>' + esc_(r.hwChapter ? r.hwChapter + ' — ' : '') + esc_(r.hwDesc || '') + ' ' + hwTags + '</div>'
+  const when = formatDDMMYYYY_(r.timeMs) + ' · ' + new Date(r.timeMs).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+  const hwHtml = (r.hwDesc || r.hwChapter)
+    ? '<div class="cwhw-block"><span class="cwhw-label hw">HW</span>' + esc_(r.hwChapter ? r.hwChapter + ' — ' : '') + esc_(r.hwDesc || '') + '</div>'
     : '';
   return '<div class="cwhw-entry">' +
-    '<div class="cwhw-entry-head"><b>' + esc_(r.classMapped || '—') + '</b> · ' + esc_(r.subject || '') + '<span>' + esc_(when) + '</span></div>' +
-    '<div class="cwhw-block"><span class="cwhw-label cw">CW</span>' + esc_(r.cwChapter ? r.cwChapter + ' — ' : '') + esc_(r.cwDesc || '') + ' ' + cwTags + '</div>' +
+    '<div class="cwhw-entry-head">' + esc_(when) + '</div>' +
+    '<div class="cwhw-block"><span class="cwhw-label cw">CW</span>' + esc_(r.cwChapter ? r.cwChapter + ' — ' : '') + esc_(r.cwDesc || '') + '</div>' +
     hwHtml +
     '</div>';
 }
