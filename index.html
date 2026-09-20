@@ -604,18 +604,23 @@ const TAG_CLASS_MAP = [
   ['cwa', 'tag-cwa'], ['ott', 'tag-ott'], ['teach', 'tag-teaching'],
   ['revis', 'tag-revise'], ['remedial', 'tag-remedial'],
 ];
-// Ported from daily-progress.html's DAILY_SCHOOL_NAMES/dailySchoolToLMS
-// (also mirrored server-side in apps-script/teacher-portal.gs's
-// TP_LMS_LAST_WORD) -- without this, a teacher name shared across two
-// campuses would have their CW/HW logs merged together below, since
-// cwRecords spans every campus in one payload.
-const TT_LMS_LAST_WORD = { LMS1: 'kullu', LMS2: 'kelheli', LMS3: 'dunkhra', LMS4: 'nerchowk', LMS5: 'sayoli', LMS6: 'jogindernagar' };
-const TT_LMS_ALIASES = { LMS6: ['guru international'] };
-function recordMatchesMyCampus_(schoolName) {
+// FIXED 2026-09-20: cwRecords carries NO `school` field at all --
+// confirmed by fetching the live proxy directly (26,317 real records
+// inspected, `school` key present on zero of them). The ORIGINAL
+// version of this function checked r.school, which is always
+// undefined, so it silently rejected EVERY record for EVERY campus --
+// "My CW/HW Patterns" and My Score's Regularity number have both been
+// reading as empty/0% for everyone since they shipped, not a
+// name-matching edge case. The real per-record campus field is
+// `lmsIdx`, a 0-based numeric index (0=LMS1..5=LMS6) matching
+// daily-progress.html's DAILY_SCHOOL_NAMES order -- confirmed against
+// the live data (lmsIdx 0-5 all present, correct distribution). Also
+// mirrored server-side in apps-script/teacher-portal.gs's
+// TP_LMS_IDX_TO_CAMPUS_ID -- keep both in sync.
+const LMS_IDX_TO_CAMPUS_ID = ['LMS1', 'LMS2', 'LMS3', 'LMS4', 'LMS5', 'LMS6'];
+function recordMatchesMyCampus_(record) {
   const campusId = EFFECTIVE_CAMPUS_ID || SESSION.campusId;
-  const school = String(schoolName || '').toLowerCase();
-  if (school.indexOf(TT_LMS_LAST_WORD[campusId] || ' ') !== -1) return true;
-  return (TT_LMS_ALIASES[campusId] || []).some(function (a) { return school.indexOf(a) !== -1; });
+  return LMS_IDX_TO_CAMPUS_ID[record.lmsIdx] === campusId;
 }
 const TAG_COLOR_MAP = { 'tag-cwa': '#15803d', 'tag-ott': '#1d4ed8', 'tag-teaching': '#6d28d9', 'tag-revise': '#b45309', 'tag-remedial': '#CE0000', 'tag-default': '#8A96A6' };
 function tagClass_(tag) {
@@ -646,7 +651,7 @@ async function loadTags() {
     body.innerHTML = '<div class="notice">CW/HW data source returned something unexpected — try again shortly.</div>';
     return;
   }
-  const mine = data.cwRecords.filter(function (r) { return recordMatchesMyCampus_(r.school) && resolveCodeFromName_(r.teacher, roster) === MY_EMPLOYEE_CODE; });
+  const mine = data.cwRecords.filter(function (r) { return recordMatchesMyCampus_(r) && resolveCodeFromName_(r.teacher, roster) === MY_EMPLOYEE_CODE; });
   if (!mine.length) {
     body.innerHTML = '<div class="dash-empty">No CW/HW log entries resolved to your Employee Code yet. If you have been logging and this looks wrong, the log’s typed name likely isn’t matching your roster entry — flag it so it can be fixed.</div>';
     return;
