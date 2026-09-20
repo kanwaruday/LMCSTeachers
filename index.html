@@ -501,10 +501,64 @@ async function loadEvals() {
     '<div class="card"><p class="card-title">Rubric Breakdown<span style="font-weight:600;color:var(--gray);text-transform:none;letter-spacing:0">Last submitted ' + formatDDMMYYYY_(s.lastSubmission) + '</span></p>' + rubricHtml + '</div>';
 }
 
-// ── MY CW/HW TAGS — new, reads the existing public CWHW proxy,
-// filters client-side to the signed-in teacher's own name (same
+// ── EmployeeCode resolution (2026-09-20, per Uday) — Timetable and
+// CW/HW Patterns both used to match by SESSION.name directly against
+// their data source, same fragility already fixed for My Rank/My
+// Evaluations on the backend. Neither of those two sources is
+// reachable server-side without a new round trip, so instead: resolve
+// MY OWN code once via action=myemployeecode (AuthEmail-first,
+// same as the backend), then resolve every OTHER name found in the
+// public CW/HW proxy against the public roster (employee-roster.gs) --
+// that side still can't avoid name-matching, since neither source
+// captures a code at all, but at least "who am I" is no longer a
+// guess. A shared promise so whichever of loadTimetable_/loadTags
+// runs first does the one fetch, and the other reuses it. ──────────
+const EMPLOYEE_ROSTER_URL = 'https://script.google.com/macros/s/AKfycbyHiaZY_iWK2VTKKFJcCsBNnIbUndJYUSjnPkxvJ-dYavaihiul2xBJuJohPRsP9Spf/exec';
+let MY_EMPLOYEE_CODE = null;
+let myEmployeeCodePromise_ = null;
+function ensureMyEmployeeCode_() {
+  if (!myEmployeeCodePromise_) {
+    myEmployeeCodePromise_ = pdrGet_('myemployeecode', {}).then(function (res) {
+      if (res.success && res.found) MY_EMPLOYEE_CODE = res.employeeCode;
+      return res;
+    });
+  }
+  return myEmployeeCodePromise_;
+}
+// Mirrors apps-script/teacher-portal.gs's tpNormalizeName_ -- keep in
+// sync if that changes.
+function normalizeNameForMatch_(name) {
+  return String(name || '').trim().toLowerCase()
+    .replace(/\s+(maam|ma'am|mam|madam|sir)\s*$/i, '')
+    .replace(/\s+/g, ' ').trim();
+}
+let myCampusRosterPromise_ = null;
+function loadMyCampusRoster_() {
+  if (!myCampusRosterPromise_) {
+    myCampusRosterPromise_ = fetch(EMPLOYEE_ROSTER_URL + '?action=employees', { cache: 'no-cache' })
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (!res.success || !Array.isArray(res.employees)) return [];
+        const wantSchool = 'LMS ' + SESSION.campusId.replace('LMS', '');
+        return res.employees.filter(function (e) { return e.school === wantSchool; })
+          .map(function (e) { return { employeeCode: e.employeeCode, nameNorm: normalizeNameForMatch_(e.name) }; });
+      })
+      .catch(function () { return []; });
+  }
+  return myCampusRosterPromise_;
+}
+function resolveCodeFromName_(rawName, roster) {
+  const wanted = normalizeNameForMatch_(rawName);
+  if (!wanted) return null;
+  for (let i = 0; i < roster.length; i++) { if (roster[i].nameNorm === wanted) return roster[i].employeeCode; }
+  return null;
+}
+
+// ── MY CW/HW TAGS — reads the existing public CWHW proxy (same
 // exposure level the proxy already has for every other viewer of this
-// data — see the CWHW_PROXY_URL comment above). ─────────────────────
+// data), now matched by resolving each record's teacher name against
+// the roster and comparing EmployeeCode to MY_EMPLOYEE_CODE, not by
+// comparing raw name strings directly. ─────────────────────────────
 let tagsLoaded = false;
 const TAG_CLASS_MAP = [
   ['cwa', 'tag-cwa'], ['ott', 'tag-ott'], ['teach', 'tag-teaching'],
@@ -533,6 +587,13 @@ function splitTags_(tagStr) { return String(tagStr || '').split(',').map(functio
 async function loadTags() {
   const body = document.getElementById('tagsBody');
   tagsLoaded = true;
+  const codeRes = await ensureMyEmployeeCode_();
+  if (!codeRes.success) { body.innerHTML = '<div class="notice">Couldn’t resolve your Employee Code: ' + esc_(codeRes.error || 'unknown error') + '</div>'; pdrReportAuthFailureIfNeeded_(codeRes); return; }
+  if (!MY_EMPLOYEE_CODE) {
+    body.innerHTML = '<div class="dash-empty">Your account doesn’t resolve to an Employee Code yet (checked by your sign-in email, then by name) — CW/HW patterns can’t be reliably matched until that’s fixed at the source. Flag this so it can be corrected.</div>';
+    return;
+  }
+  const roster = await loadMyCampusRoster_();
   let data;
   try {
     data = await fetch(CWHW_PROXY_URL, { cache: 'no-cache' }).then(function (r) { return r.json(); });
@@ -544,10 +605,9 @@ async function loadTags() {
     body.innerHTML = '<div class="notice">CW/HW data source returned something unexpected — try again shortly.</div>';
     return;
   }
-  const myName = String(SESSION.name || '').trim().toLowerCase();
-  const mine = data.cwRecords.filter(function (r) { return recordMatchesMyCampus_(r.school) && String(r.teacher || '').trim().toLowerCase() === myName; });
+  const mine = data.cwRecords.filter(function (r) { return recordMatchesMyCampus_(r.school) && resolveCodeFromName_(r.teacher, roster) === MY_EMPLOYEE_CODE; });
   if (!mine.length) {
-    body.innerHTML = '<div class="dash-empty">No CW/HW log entries found under your name yet (' + esc_(SESSION.name || 'your account') + '). If you have been logging and this looks wrong, it may be a name-spelling mismatch — flag it so it can be fixed.</div>';
+    body.innerHTML = '<div class="dash-empty">No CW/HW log entries resolved to your Employee Code yet. If you have been logging and this looks wrong, the log’s typed name likely isn’t matching your roster entry — flag it so it can be fixed.</div>';
     return;
   }
   const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
@@ -613,11 +673,14 @@ async function loadEvents_() {
 }
 
 // ── YOUR TIMETABLE — static data/timetable.json (see this repo's
-// preprocessing note in README), matched by SESSION.name against the
-// campus's teacher list, same honest not-found pattern as My
-// Evaluations / My CW/HW Patterns above. No LMS1 data yet -- source
-// timetable extraction hasn't covered that campus (told to the teacher
-// plainly rather than showing an empty grid as if that were real). ──
+// README), re-keyed 2026-09-20 by TeacherEmployeeCode instead of name
+// -- matched via MY_EMPLOYEE_CODE (see the resolution block above),
+// same honest not-found pattern as everywhere else here. No LMS1 data
+// yet -- source timetable extraction hasn't covered that campus. Note
+// the code-keying tradeoff: 562 of the original 3,144 timetable rows
+// had an assigned teacher but no EmployeeCode the extractor could
+// resolve -- those periods are simply absent now rather than shown
+// under a guessed name. ─────────────────────────────────────────────
 const TIMETABLE_URL = 'data/timetable.json';
 const TT_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 let myTimetable_ = null; // {periods:[...]} once loaded
@@ -625,6 +688,13 @@ let ttSelectedDay = TT_DAYS[Math.max(0, Math.min(5, new Date().getDay() - 1))]; 
 
 async function loadTimetable_() {
   const body = document.getElementById('timetableBody');
+  const codeRes = await ensureMyEmployeeCode_();
+  if (!codeRes.success) { body.innerHTML = '<div class="notice">Couldn’t resolve your Employee Code: ' + esc_(codeRes.error || 'unknown error') + '</div>'; pdrReportAuthFailureIfNeeded_(codeRes); return; }
+  if (!MY_EMPLOYEE_CODE) {
+    body.innerHTML = '<div class="dash-empty">Your account doesn’t resolve to an Employee Code yet (checked by your sign-in email, then by name) — timetable can’t be matched until that’s fixed at the source. Flag this so it can be corrected.</div>';
+    document.getElementById('ttDayPicker').innerHTML = '';
+    return;
+  }
   let data;
   try {
     data = await fetch(TIMETABLE_URL, { cache: 'no-cache' }).then(function (r) { return r.json(); });
@@ -638,10 +708,9 @@ async function loadTimetable_() {
     document.getElementById('ttDayPicker').innerHTML = '';
     return;
   }
-  const myName = String(SESSION.name || '').trim().toLowerCase();
-  myTimetable_ = campusData[myName] || null;
+  myTimetable_ = campusData[MY_EMPLOYEE_CODE] || null;
   if (!myTimetable_) {
-    body.innerHTML = '<div class="dash-empty">No timetable entries found under your name (' + esc_(SESSION.name || 'your account') + '). If you do teach regular periods and this looks wrong, it may be a name-spelling mismatch — flag it so it can be fixed.</div>';
+    body.innerHTML = '<div class="dash-empty">No timetable entries resolved to your Employee Code. Either you don’t teach regular periods, or the timetable extraction couldn’t resolve a code for your rows — flag it if this looks wrong.</div>';
     document.getElementById('ttDayPicker').innerHTML = '';
     return;
   }
